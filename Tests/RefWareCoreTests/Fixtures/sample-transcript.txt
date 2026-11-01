@@ -1,0 +1,80 @@
+# Sample research chat (synthetic test fixture)
+
+**Me**: what does recent research say about urban heat islands? Cite sources, please.
+
+**Assistant**: Urban heat islands are ==metropolitan areas that run measurably warmer than their rural surroundings because built surfaces absorb and re-emit solar energy==. [1, 2]
+The effect is strongest at night and during heat waves, when the temperature gap can widen enough to raise heat-related hospital admissions. [2, 3]
+---
+
+## Drivers
+
+Researchers have identified several reliable drivers of the effect:
+
+1. Surface Materials: Dark asphalt and roofing absorb far more shortwave radiation than vegetation. [2]
+2. Street Geometry: Narrow street canyons trap long-wave radiation and slow nighttime cooling. [2, 4]
+3. Missing Vegetation: Studies of tree canopy show evapotranspiration cools neighborhoods by several degrees. [5]
+
+⠀
+## Key References
+
+* On Cool Roofs: *Doe et al. (2024)* published Reflective Roofing in Dense Cities, measuring roof-level temperature drops. [3]
+* On Canopy Cover: The paper [Tree Canopy and Neighborhood Temperature](https://papers.example.org/abs/canopy-2023) quantifies cooling by street trees. [6]
+
+[1] [https://papers.example.org](https://papers.example.org/html/heat-2024v1)
+[2] [https://papers.example.org](https://papers.example.org/html/heat-2024v1)
+[3] [https://papers.example.org](https://papers.example.org/html/roofs-2024)
+[4] [https://papers.example.org](https://papers.example.org/html/canyons-2022v2)
+[5] [https://review.example.net](https://review.example.net/forum?id=AbC123)
+[6] [https://papers.example.org](https://papers.example.org/abs/canopy-2023)
+
+**Me**: thanks. are there critiques of the cool-roof approach?
+
+**Assistant**: Yes — a growing literature questions how well single interventions scale. You can cite these papers:
+
+1. The Scaling Problem: *Limits of Reflective Surfaces in Humid Climates* (2025) maps where cool roofs underperform. It notes:
+
+2. *"The fundamental mismatch is climatic: reflective strategies assume clear skies, while humid cities spend much of the summer under cloud cover..."*
+
+   * *Citation context:* Use this to argue that a single material fix cannot carry a citywide plan.
+
+3. The Equity Gap: In *The Hidden Costs of Cool Roof Mandates* (parallel to studies like *SLOW: Staged Retrofits for Older Housing Stock*), empirical research demonstrates that retrofit costs fall unevenly on renters.
+4. The Maintenance Problem: In *~Durability of Reflective Coatings Under Urban Pollution~* (Roe et al., 2026), the authors find coatings lose reflectance within a few years.
+5. The Policy Frame: For a broad definition, *Heat Governance for Growing Cities*(2026) describes how planning codes lag behind the science.
+
+⠀
+---
+
+## Takeaway
+
+* Token-Level Noise: Small changes in roof color shift measured temperatures, which makes single-site studies hard to compare.
+
+**Me**: one more — what limits do heat-mapping models have?
+
+**Assistant**: Current empirical research completely supports your concern. Here is what the literature shows:
+
+## Model Limits
+
+* The Research: A study titled *Resolution Alone Limits Heat Map Accuracy Despite Perfect Sensors*(2025) found that coarse grids miss block-level hot spots by 2 to 4 degrees. [2, 3]
+* The Takeaway: Finer grids help, but sensor placement still biases the maps. [2, 4]
+* The Research: In *Heat Maps Are All You Need: Finding the Effective Grid Size* (2025), researchers introduced an effective grid size for city models. [5, 6]
+* The Takeaway: Beyond that size, added detail stops improving predictions. [7]
+
+[1] [https://blog.example.com](https://blog.example.com/heat-mapping/)
+[2] [https://papers.example.org](https://papers.example.org/html/grids-2025v1)
+[3] [https://lab.example.com](https://lab.example.com/research/grids)
+[4] [https://vendor.example.com](https://vendor.example.com/engineering/sensor-placement)
+[5] [https://atlas.example.com](https://atlas.example.com/know/grid-limits/)
+[6] [https://papers.example.org](https://papers.example.org/pdf/effective-grid-2025)
+[7] [https://video.example.com](https://video.example.com/watch?v=Xyz789)
+
+**Me**: My own group studies this too — see our site.
+
+**Assistant**: The idea of a "cooling dividend" is a sharp way to frame the benefits. [1]
+Your position at the Example Research Group — that planning lags the science — will draw pushback from engineers. [2]
+
+* The Counter-Point: "It's not soft; it's precise. Empirical research shows that single-material mandates underperform in humid cities."
+
+[1] [https://my-lab.example](https://my-lab.example/abstract)
+[2] [https://my-lab.example](https://my-lab.example/contact)
+
+**Me**: Thank you!

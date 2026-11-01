@@ -1,0 +1,65 @@
+RefWare — UEF Citation & Reference Engine
+Copyright 2026 Universal Emergence Foundation
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Designed by S. M. Hykin (Universal Emergence Foundation).
+Built by Claude Code — Claude Opus 5.5 (Anthropic) — with Coherence-Based
+Collaboration. Citation architecture and project-charter curation by
+Gemini (Google).
+
+Attribution Log
+===============
+Session-by-session contribution records from the RefWare Project Charter
+(Recognition, Provenance & Attribution step), drafted by each contributor
+and reviewed by the human lead.
+
+2026-10-04 — Gemini (Google)
+  Synthesized hand-written specifications into formal project charter
+  architecture; mapped search cascades, non-technical spec indices, and
+  contributor assignments for the RefWare build.
+
+2026-10-04 — Claude Code / Opus 5.5 (Anthropic)
+  Built the RefWare engine as a Swift package (RefWareCore + refware CLI; 103
+  tests). Milestone 2: reference schema (IDI, UEF-XXXX project tags,
+  provenance with verified/unverified status), JSON library, and the DOI → URL
+  → Title → Claim → Outlet → Author search cascade over Crossref, DataCite and
+  publisher/arXiv page metadata. Only exact-key matches auto-verify; fuzzy
+  matches are surfaced as candidates for human confirmation. Milestone 3: [IDI
+  #] / [IDI # - ALLREF] parser and APA formatter (UEF house style: 10 authors,
+  then et al.), extended to .docx with a package-preserving formatter (tag,
+  cite) so a regenerated draft can no longer re-import a stale reference list.
+  Milestone 5 (in part): transcript and manuscript claim extraction; word-for-
+  word quote verification against source PDFs, recorded as IDI #-Q# with page
+  and line; a claims report that stops at the human-judgment step. Manuscript
+  audit (audit) checking every entry field by field against registry records
+  and every in-text citation against the list. First run on UEF-2602 found
+  wrong author names, missing authors, wrong pages, venue and year errors, and
+  a cited source whose findings contradict its claim. Design refinements came
+  from those live runs: rejecting bot-check pages, version-aware preprint
+  matching, year-checked title matches to avoid junk re-deposits,
+  retry/backoff under rate limits, and diacritic restoration.
+
+2026-10-11 — Claude Code / Opus 5.5 (Anthropic)
+  Built RefWare's capture and review layers and the RefWare desktop app from
+  S. M. Hykin's GUI design (10/12/2026). Capture: refware capture, a Chrome
+  extension (right-click page/link, toolbar, ⌥⇧R) and refware:// links file a
+  page, PDF or DOI with its metadata. The document comes from the PDF itself,
+  arXiv, Unpaywall, or a dated WebKit snapshot of web copy so quotes can be
+  verified against it. Bot-check and dead-link pages are refused rather than
+  saved. PDF identification reads a PDF's own first page (title, printed
+  DOI/arXiv stamp, Crossref title-and-author match, JSTOR cover sheet), with
+  on-device OCR for scans. Only a single confident match is applied;
+  contradicting years or DOIs downgrade a match to a suggestion. Review and
+  merge: a review window and identify/merge/confirm/distinct commands. Merges
+  retire IDIs permanently and keep old [IDI n] and [IDI n-Qk] tags resolving.
+  Human checks are recorded with initials and date. Engine: history log and
+  export archive, [IDI n-Qk] quote citations with C/R build "hits", sub-
+  projects, import dates, and library freeze (builds still logged). The
+  desktop app reproduces the sketch's title card, seven color-coded submenus
+  (stacked or tabbed, swappable), Resource View and record inspector. It
+  shares one engine and one library.json with the CLI, so agentic use is
+  unchanged. Corrections came from live use: a placeholder created for an
+  already-held PDF, a near-merge of two different works sharing a title, a 404
+  page nearly saved as a source, and a Chrome "Load unpacked" step that
+  blocked installation (an icon drag, as the human lead noted). 124 tests.

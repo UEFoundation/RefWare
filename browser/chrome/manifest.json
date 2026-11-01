@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "RefWare Capture",
+  "version": "1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2cvTrREcWFYFtVVYnFFqgJ37IhgghmyuPZ+edqV0esMDRkQ4PcciopyBgj5XFCN5qVhyArr/gXK8VhBhLw48tBDnKandb1T2zkzwPwRlec8B9GoX8x27Z/cR0xGuFx+DqtmH+Ersa8+L7lMWcBuIaMCc15DafoFM2RGOy6tuvnJYkwNURfA4b4ZjFWSMiX7qleHnnkSxc/w+2hmFkiNuBZbWzSNuM/nKunbcAfRYz6tdm9lAvxyADT4eByJM2R4qsFBAJUOTyr7kswsJmkTvBDCX0X4KhZRXamd/mhYsCUB/w5YTbKCtHAimE8PtTkwRgunr2+wLCXw2UyZ5tgfAtQIDAQAB",
+  "description": "Send the current page, PDF, or a linked item to your RefWare library (UEF).",
+  "permissions": [
+    "contextMenus",
+    "activeTab",
+    "nativeMessaging"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Add this tab to RefWare",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+R",
+        "mac": "Alt+Shift+R"
+      },
+      "description": "Add this tab to RefWare"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

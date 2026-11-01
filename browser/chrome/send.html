@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Send to RefWare</title>
+<style>
+  body { font: 15px -apple-system, system-ui, sans-serif; margin: 3em; color: #333; max-width: 640px; }
+  button { font-size: 16px; padding: 10px 18px; border-radius: 8px; border: 0; background: #2b6cb0; color: white; cursor: pointer; }
+  code { background: #f3f3f3; padding: 2px 5px; border-radius: 4px; }
+  .muted { color: #777; font-size: 13px; }
+</style>
+<h2>Send to RefWare</h2>
+<p id="what"></p>
+<p><button id="go">Send to RefWare</button></p>
+<p class="muted">RefWare's browser bridge isn't installed, so Chrome needs this click to open RefWare (tick <i>Always allow</i> if asked).
+To capture in one click from now on, run <code>./scripts/install-capture-app.sh</code> and reload the extension.</p>
+<script src="send.js"></script>

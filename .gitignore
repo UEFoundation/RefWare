@@ -1,0 +1,27 @@
+# Build products
+.build/
+.swiftpm/
+*.xcodeproj
+xcuserdata/
+.DS_Store
+
+# Private material kept out of the public repository
+*.docx
+Pre-talk Prep*.txt
+IMG_*.PNG
+IMG_*.png
+Spec_map.png
+library*.json
+refware-history.json
+PDFs/
+Exports/
+
+# Logo source dropped into the folder (kept as assets/RefWare-logo.png)
+PNG image-*.png
+
+# Working notes and reports (kept locally, not published)
+User Reports/
+Sprint_2/
+
+# Release builds
+dist/
