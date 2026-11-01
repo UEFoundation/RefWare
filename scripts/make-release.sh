@@ -9,6 +9,7 @@ rm -rf "$OUT" "$OUT-macOS.zip"
 mkdir -p "$OUT"
 ./scripts/build-app.sh "$OUT/RefWare.app" --universal
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$OUT/RefWare.app/Contents/Info.plist"
+xattr -cr "$OUT"
 codesign --force --sign - "$OUT/RefWare.app"
 cp -R browser/chrome "$OUT/RefWare Chrome Extension"
 cat > "$OUT/INSTALL.txt" <<'TXT'
@@ -38,6 +39,6 @@ RefWare — installing
 Documentation and source: the RefWare repository on GitHub (README.md).
 TXT
 cp LICENSE NOTICE "$OUT/"
-ditto -c -k --keepParent "$OUT" "$OUT-macOS.zip"
+ditto -c -k --norsrc --noextattr --keepParent "$OUT" "$OUT-macOS.zip"
 echo "Release: $OUT-macOS.zip ($(du -h "$OUT-macOS.zip" | cut -f1))"
 lipo -archs "$OUT/RefWare.app/Contents/MacOS/RefWareCapture"

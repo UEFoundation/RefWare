@@ -63,6 +63,8 @@ PLIST
 # The CLI travels inside the app; it doubles as Chrome's native-messaging host.
 cp "$BIN/refware" "$APP/Contents/MacOS/refware"
 
+# No extended attributes inside the bundle: some unzip tools turn them into ._ files, breaking the seal.
+xattr -cr "$APP"
 # Ad-hoc signature (inner tool first). Releases get a Developer ID signature once the Foundation has one.
 codesign --force --sign - "$APP/Contents/MacOS/refware"
 codesign --force --sign - "$APP/Contents/MacOS/RefWareCapture"
