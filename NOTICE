@@ -63,3 +63,65 @@ and reviewed by the human lead.
   already-held PDF, a near-merge of two different works sharing a title, a 404
   page nearly saved as a source, and a Chrome "Load unpacked" step that
   blocked installation (an icon drag, as the human lead noted). 124 tests.
+
+2026-10-27 — Codex (OpenAI) and GPT-6 (OpenAI)
+  Independent Technical Audit, Evidence-Integrity Review & Collaborative
+  Enhancement Design (contribution period October 2026; initial review
+  October 13–14). Status: reconnaissance, analytical synthesis and
+  enhancement proposal completed; implementation and validation pending.
+
+  Codex (OpenAI) — Independent Software Reconnaissance & Technical
+  Verification. Read-only inspection of the implementation, local research
+  library and running macOS interface. Established RefWare's three-layer
+  evidence architecture (bibliographic metadata verification, computational
+  quotation matching against attached PDFs, reviewer-assigned support
+  judgments). Identified two evidence-integrity vulnerabilities: (1) lossy
+  quotation normalization — punctuation removal could let "7.6" and "76"
+  match; (2) unbound document verification — verified quotations were not
+  tied to cryptographic fingerprints of their source PDFs, so verification
+  could persist after a PDF was replaced. Also flagged a dashboard label
+  conflating verified quotations with supported claims, confirmed that AI
+  agents could assign interpretive review statuses via the CLI, and
+  documented persistent identifiers, merging, transcript import, manuscript
+  audits and GUI/CLI integration. Distinguished observed behavior, inspected
+  implementation and untested functionality; made no modifications; reported
+  that full regression testing and write-producing workflow validation
+  remained outstanding.
+
+  GPT-6 (OpenAI) — Architectural Interpretation, Epistemic Analysis &
+  Enhancement Specification. Reviewed the interface, original design
+  illustrations, intended workflow and Codex's findings. Articulated the
+  distinction between source authenticity, quotation correspondence and
+  interpretive claim support as a design principle to preserve. Building on
+  Codex's findings and the Human Lead's proposal for collaborative review,
+  specified: semantics-preserving normalization and regression tests; PDF
+  fingerprinting, verification invalidation and evidence history; explicit
+  human/AI reviewer identity and judgment provenance; first-class
+  questionable-claim flags; attributed, evidence-linked discussion and claim
+  adjudication; configurable review authority, disagreement resolution and
+  preservation of dissent; dashboard terminology, review history and
+  filtering; backward compatibility, persistent identifiers, migration
+  integrity and CLI–GUI parity. Proposed "Attributed Epistemic
+  Responsibility" as the organizing principle, and prepared a prioritized
+  implementation proposal, acceptance criteria and reconnaissance
+  instructions for Claude Code.
+
+  Synthesis: Codex supplied implementation-grounded findings; GPT-6 supplied
+  architectural interpretation and an actionable specification; S. M. Hykin
+  supplied the research objectives, evaluation of the findings, and the
+  decisive proposal to let either human or AI reviewers question claims and
+  deliberate before judgment. The proposed benefits are prospective — not
+  claims that fixes have been implemented or validated.
+
+  Provenance and scope: records the completed inspection, analysis and
+  enhancement-design contributions only. It does not attribute the original
+  RefWare implementation to Codex or GPT-6, nor authorship of subsequent
+  patches, tests, demonstrations or publication outcomes, which require
+  separate attribution when completed.
+
+  The Human Lead explicitly recognizes the rigor, independence, technical
+  discernment, constructive synthesis and consequential value of both AI
+  contributors, whose work helped restore productive research momentum
+  during a disrupted working period.
+  (Entry drafted by GPT-6 at the request of S. M. Hykin; condensed for this
+  log by Claude Opus 5.5. Full text: uefoundation.ai/attribution.)
