@@ -51,15 +51,16 @@ extension Library {
 
         if takeIncomingDetails {
             // Keep the survivor's number, projects and claims; take the other record's bibliographic details.
-            target.authors = source.authors
-            target.year = source.year
+            // What the other record doesn't state is kept, not erased.
+            if !source.authors.isEmpty { target.authors = source.authors }
+            target.year = source.year ?? target.year
             target.title = source.title
-            target.publication = source.publication
-            target.indexing = source.indexing
-            target.doi = source.doi
+            target.publication = source.publication ?? target.publication
+            if source.indexing.volume != nil || source.indexing.pages != nil || source.indexing.issue != nil { target.indexing = source.indexing }
+            target.doi = source.doi ?? target.doi
             target.url = source.url ?? target.url
-            target.arxiv = source.arxiv
-            target.publicationType = source.publicationType
+            target.arxiv = source.arxiv ?? target.arxiv
+            if source.publicationType != .unclassified { target.publicationType = source.publicationType }
             target.provenance = source.provenance
             // Rename the PDF to match the new author/year.
             if let dir = pdfDirectory, let f = target.fileName {
@@ -114,6 +115,17 @@ extension Library {
         guard let old = references[canonical(id)] else { throw LibraryError.unknownIDI(id) }
         var ref = m.makeReference(id: old.id, verified: verified, projects: old.projects, fileName: old.fileName)
         if ref.url == nil { ref.url = old.url }
+        // A suggestion replaces what it states; it never erases what it doesn't. (A web page
+        // with no byline must not wipe the record's author.)
+        if ref.authors.isEmpty { ref.authors = old.authors }
+        if ref.year == nil { ref.year = old.year }
+        if ref.publication == nil { ref.publication = old.publication }
+        if ref.doi == nil, let d = old.doi { ref.doi = d }
+        if ref.publicationType == .unclassified { ref.publicationType = old.publicationType }
+        if ref.indexing.volume == nil && ref.indexing.pages == nil && ref.indexing.issue == nil { ref.indexing = old.indexing }
+        // Same PDF, same fingerprint: its quotes stay bound to it.
+        ref.pdfSHA256 = old.pdfSHA256
+        ref.added = old.added
         try update(ref)
         // Rename the PDF to match the new author/year.
         if let dir = pdfDirectory, let file = old.fileName {

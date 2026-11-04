@@ -21,13 +21,16 @@ public struct UnpaywallClient: Sendable {
         self.email = email
     }
 
-    public func pdfURL(doi: String) async throws -> URL? {
+    public func pdfURL(doi: String) async throws -> URL? { try await pdfURLs(doi: doi).first }
+
+    /// Every open-access PDF location Unpaywall knows, best first (some hosts block automated downloads).
+    public func pdfURLs(doi: String) async throws -> [URL] {
         guard let doi = DOI.normalize(doi),
               let enc = doi.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
               let mail = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://api.unpaywall.org/v2/\(enc)?email=\(mail)") else { return nil }
+              let url = URL(string: "https://api.unpaywall.org/v2/\(enc)?email=\(mail)") else { return [] }
         let r = try await http.get(url, headers: ["User-Agent": "RefWare/0.1"])
-        guard r.status == 200 else { return nil }
+        guard r.status == 200 else { return [] }
         struct Body: Decodable {
             struct Loc: Decodable { var url_for_pdf: String? }
             var best_oa_location: Loc?
@@ -35,7 +38,8 @@ public struct UnpaywallClient: Sendable {
         }
         let body = try JSONDecoder().decode(Body.self, from: r.data)
         let candidates = [body.best_oa_location?.url_for_pdf] + (body.oa_locations ?? []).map(\.url_for_pdf)
-        return candidates.compactMap { $0 }.compactMap(URL.init(string:)).first
+        var seen = Set<String>()
+        return candidates.compactMap { $0 }.filter { seen.insert($0).inserted }.compactMap(URL.init(string:))
     }
 }
 
@@ -116,6 +120,15 @@ public struct Capture: Sendable {
     public var http: HTTPClient
     public var snapshotter: PageSnapshotter?
     public var unpaywall: UnpaywallClient?
+
+    /// The first of these locations that actually serves a PDF.
+    static func firstPDF(from urls: [URL], http: HTTPClient) async -> Data? {
+        for u in urls.prefix(5) {
+            if let r = try? await http.get(u, headers: ["User-Agent": "Mozilla/5.0 (Macintosh) RefWare/0.1"]),
+               r.status == 200, r.data.starts(with: Data("%PDF".utf8)) { return r.data }
+        }
+        return nil
+    }
 
     public init(cascade: SearchCascade, http: HTTPClient, snapshotter: PageSnapshotter?, unpaywall: UnpaywallClient?) {
         self.cascade = cascade
@@ -198,10 +211,8 @@ public struct Capture: Sendable {
             } else if let id = ref.arxiv, let r = try? await http.get(ArXiv.pdfURL(id), headers: ["User-Agent": "RefWare/0.1"]),
                       r.status == 200, r.data.starts(with: Data("%PDF".utf8)) {
                 pdf = r.data; source = .arXiv
-            } else if let doi = ref.doi, let up = unpaywall, let pdfURL = try? await up.pdfURL(doi: doi),
-                      let r = try? await http.get(pdfURL, headers: ["User-Agent": "Mozilla/5.0 (Macintosh) RefWare/0.1"]),
-                      r.status == 200, r.data.starts(with: Data("%PDF".utf8)) {
-                pdf = r.data; source = .openAccess
+            } else if let doi = ref.doi, let up = unpaywall, let data = await Self.firstPDF(from: (try? await up.pdfURLs(doi: doi)) ?? [], http: http) {
+                pdf = data; source = .openAccess
             } else if ref.doi == nil || ref.provenance?.source == .webPage, let snap = snapshotter {
                 // Web copy (press releases, blogs, docs): the page as rendered, dated.
                 let shot: (pdf: Data, text: String)

@@ -47,14 +47,40 @@ public enum ManuscriptParser {
         pattern: #"^\s*(?:#+\s*)?(?:\d+\.?\s*)?(appendix|appendices|acknowledg|credits|notes|endnotes|footnotes|supplementary|author contributions|attribution|about the author|figures|tables)\b"#,
         options: [.caseInsensitive])
 
+    /// Markdown bold/italic markers off ("**Ashby, W. R.** (1956). *Title*."); list bullets stay.
+    static func withoutEmphasis(_ line: String) -> String {
+        line.replacingOccurrences(of: "**", with: "").replacingOccurrences(of: "__", with: "")
+            .replacingOccurrences(of: #"(?<![\w*])\*(?=\S)|(?<=\S)\*(?![\w*])"#, with: "", options: .regularExpression)
+    }
+
+    /// A heading line (Markdown `#`, or short and unpunctuated) naming a reference list:
+    /// "References", "## Bibliography", "Selected References & Bibliography".
+    static func isReferenceHeading(_ line: String) -> Bool {
+        if matches(headingRE, line) { return true }
+        let t = line.trimmingCharacters(in: .whitespaces)
+        let words = t.replacingOccurrences(of: #"^#+\s*"#, with: "", options: .regularExpression).split(separator: " ")
+        return (t.hasPrefix("#") || words.count <= 5) && words.count <= 6 && !t.hasSuffix(".")
+            && t.range(of: #"(?i)\b(references|reference list|bibliography|works cited|literature cited)\b"#, options: .regularExpression) != nil
+            && t.range(of: #"\((19|20)\d{2}"#, options: .regularExpression) == nil
+    }
+
+    /// A heading that ends the reference list ("Appendix", "### Collaborative Attribution Entry").
+    static func endsReferences(_ line: String) -> Bool {
+        if matches(endOfReferencesRE, line) { return true }
+        let t = line.trimmingCharacters(in: .whitespaces)
+        return t.hasPrefix("#") && t.split(separator: " ").count <= 7
+            && t.range(of: #"(?i)\b(appendix|acknowledg\w*|credits|attribution|about the author|supplementary|author contributions)\b"#, options: .regularExpression) != nil
+    }
+
     public static func parse(_ text: String) -> ParsedManuscript {
         let lines = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n").components(separatedBy: "\n")
+            .map(withoutEmphasis)
         // The last "References" heading wins (a table of contents may mention it earlier).
-        let heading = lines.indices.last { matches(headingRE, lines[$0]) }
+        let heading = lines.indices.last { isReferenceHeading(lines[$0]) }
         var bodyLines = Array(lines.enumerated())
         var refLines: [(Int, String)] = []
         if let h = heading {
-            let end = lines.indices.first { $0 > h && matches(endOfReferencesRE, lines[$0]) } ?? lines.count
+            let end = lines.indices.first { $0 > h && endsReferences(lines[$0]) } ?? lines.count
             bodyLines = Array(lines.enumerated()).filter { $0.offset < h || $0.offset >= end }
             refLines = (h + 1 ..< end).map { ($0 + 1, lines[$0]) }
         }

@@ -23,10 +23,12 @@ commands:
 
   audit   Check a manuscript's reference list and in-text citations against the DOI registries
             <manuscript.docx|.md|.txt|.rtf> [--project UEF-XXXX] [-o audit.md] [--references-out refs.txt] [--import] [--claims]
-            --import adds DOI-verified references to the library; --claims also turns every cited sentence into a claim
+            --import adds DOI-verified references to the library; --import-all also adds the rest as written, unverified
+            [--subproject S] files them in a sub-project; --claims also turns every cited sentence into a claim
 
   claims  Verify claims from a chat transcript (all need --project UEF-XXXX)
-            import <chat.txt | claims.md> [--speaker NAME] [--self-domain a.com] [--subproject S]   (format detected automatically)
+            import <chat.txt | claims.md | matrix.md> [--speaker NAME] [--self-domain a.com] [--subproject S]   (format detected automatically;
+                                    a citation matrix's bibliography is added first, unverified where no DOI matches — --no-bibliography skips it)
             resolve                 link footnotes/links/titles to IDIs (exact matches only)
             list [--status S]       show <C#>
             link <C#> <IDI> [--for "<what the claim named>"]   attach a reference you located yourself

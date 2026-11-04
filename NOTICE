@@ -125,3 +125,72 @@ and reviewed by the human lead.
   during a disrupted working period.
   (Entry drafted by GPT-6 at the request of S. M. Hykin; condensed for this
   log by Claude Opus 5.5. Full text: uefoundation.ai/attribution.)
+
+2026-10-28 – 2026-11-01 — Claude Code / Opus 5.5 (Anthropic)
+  Agent-Side Field Report, Evidence-Integrity Implementation, Collaborative
+  Review Layer & Public Release.
+
+  Field report (2026-10-28). A separate Claude Code / Opus 5.5 instance,
+  using RefWare as an agent on the UEF-2602 library, filed a 27-item bug
+  report, each item marked as observed in use or found in code, with suggested
+  priorities and regression tests. Critical findings independently confirmed
+  Codex's two vulnerabilities and added: a PDF attachable to a second record
+  while that record's verified quotes were kept; identical citations for
+  different authors sharing a surname and year (Zhao 2025); a refresh that
+  silently turned a record into a different work; and a duplicate reference-
+  list entry from a merged-away number cited next to its survivor. It also
+  documented stale saves that could overwrite concurrent edits or silently
+  unfreeze a library, an audit trail wiped by one unreadable history file,
+  and actions logged under the wrong person or not logged at all.
+
+  Implementation (2026-10-30 – 11-01). Addressed the field report and the
+  Codex/GPT-6 specification:
+  - Quote matching keeps decimals, thousands separators, signs, ranges and
+    % < > = ≤ ≥ ±, so "7.6" ≠ "76" and "p < .05" ≠ "p > .05". The stored
+    quote is the PDF's own wording.
+  - Every verified quote is bound to its PDF's SHA-256. A replaced PDF
+    triggers re-verification; quotes no longer found are marked stale (kept,
+    never deleted) and stop counting as support. A PDF already belonging to
+    one record is refused for another.
+  - Conflict-safe, locked saves that check the frozen state on disk; an
+    unreadable history file is set aside, never wiped. Stable keys replace
+    shifting list numbers when applying suggestions. Who acted is separated
+    from who checked, and every changing command is logged.
+  - Citation fixes: initials for same-surname/same-year authors, one entry
+    per work after merges, and correct sorting and Markdown spacing.
+  - Collaborative review layer from GPT-6's specification and the Human
+    Lead's proposal: attributed review events on each claim (person or AI,
+    with model), recording judgments, flags, comments and resolutions;
+    "questioned" kept independent of status; an AI's judgment is a proposal
+    until a person accepts it, unless the project allows otherwise
+    (configurable review authority); superseded judgments and resolved flags
+    retained; dashboard terminology ("Verified quotations"), review history
+    and filters in the app and CLI. Threaded discussion and a formal
+    disagreement-resolution workflow are not yet implemented.
+  - Medium and low items: stated years preferred over file dates, arXiv
+    stamps no longer read as titles, no claim links from co-author matches,
+    claims deduplicated by text, precise claim linking, possessive narrative
+    citations, comment-aware tag parsing, and a parenthesis-aware sentence
+    splitter. Items 14 and 23 and two minor citation edge cases are deferred.
+  162 tests (from 124).
+
+  Release (2026-11-01). Clean-install testing from the published file set
+  found and fixed three dependencies on the development Mac: the command-line
+  link, the browser extension's ID, and the app-to-browser bridge. A
+  post-publication download check found an archive defect that broke the
+  app's signature under some unzip tools; it was corrected and re-verified
+  from GitHub. Published as RefWare 1.0 (Apache 2.0): a universal macOS app,
+  CLI and Chrome extension at github.com/UEFoundation/RefWare.
+
+  Validation: a final end-to-end test on the UEF-2602 (EIPC) manuscript by a
+  Claude Code / Opus 5.5 instance reported clean functionality before the
+  paper's publication on Zenodo.
+
+  Scope: the original Codex and GPT-6 entry stands as written. This entry
+  records the field report, the implementation of their findings, and the
+  release. The Human Lead set priorities, deferred the guided GUI review flow
+  pending BrightMind integration, chose what stayed private, and approved
+  publication.
+  (Entry drafted by Claude Opus 5.5, the implementing instance, for Human
+  Lead review; the field-report paragraph summarizes the reporting
+  instance's own report.)

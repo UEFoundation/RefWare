@@ -36,8 +36,12 @@ struct MergeSheet: View {
     func uses(_ i: IDI) -> Int {
         store.library.claimsCiting(i).count + store.library.projects.values.flatMap(\.quotes).filter { $0.reference == i }.count
     }
+    /// How trustworthy a record's *details* are. Having a PDF doesn't count — the PDF moves to the
+    /// survivor either way — and a placeholder (no author, no year, a file name for a title) never wins.
     func strength(_ r: Reference) -> Int {
-        (r.provenance?.verified == true ? 2 : 0) + (r.fileName != nil ? 1 : 0) + (r.provenance?.confirmedBy != nil ? 1 : 0) + (r.doi != nil ? 1 : 0)
+        let placeholder = r.authors.isEmpty && r.year == nil
+        return (r.provenance?.verified == true ? 4 : 0) + (r.provenance?.confirmedBy != nil ? 3 : 0) + (r.doi != nil ? 1 : 0)
+            + (r.authors.isEmpty ? 0 : 2) + (r.year == nil ? 0 : 1) - (placeholder ? 10 : 0)
     }
 
     var body: some View {
@@ -61,7 +65,7 @@ struct MergeSheet: View {
                 guard let o, let me, let them = store.library[o] else { return }
                 // Defaults: keep the number already cited; use the stronger (verified, has PDF) details.
                 keepThisNumber = uses(id) > uses(o) || (uses(id) == uses(o) && id < o)
-                useThisDetails = strength(me) >= strength(them)
+                useThisDetails = strength(me) > strength(them) || (strength(me) == strength(them) && !(me.authors.isEmpty && me.year == nil))
             }
 
             if let o = other, let me, let them = store.library[o] {

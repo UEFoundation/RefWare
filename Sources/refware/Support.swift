@@ -9,7 +9,7 @@ struct Arguments {
     var options: [String: String] = [:]
     var flags: Set<String> = []
 
-    static let switches: Set<String> = ["markdown", "require-verified", "help", "all", "import", "claims", "no-indent", "replace", "prefer-incoming-pdf", "missing", "last", "quotes", "json", "move", "drop-claims", "take-details"]
+    static let switches: Set<String> = ["markdown", "require-verified", "help", "all", "import", "claims", "no-indent", "replace", "prefer-incoming-pdf", "missing", "last", "quotes", "json", "move", "drop-claims", "take-details", "import-all", "no-bibliography"]
 
     init(_ args: [String]) throws {
         var i = 0

@@ -427,15 +427,22 @@ struct EditForm: View {
     @State private var issue = ""
     @State private var pages = ""
     @State private var url = ""
+    @State private var doi = ""
+    @State private var type: PublicationType = .unclassified
 
     var body: some View {
         GroupBox("Edit") {
             Form {
+                Picker("Type", selection: $type) {
+                    ForEach(PublicationType.allCases, id: \.self) { t in Text(Self.label(t)).tag(t) }
+                }
                 TextField("Title", text: $title, axis: .vertical)
                 TextField("Authors", text: $authors, prompt: Text("Family, Given; Family, Given — or one organization"), axis: .vertical)
                 TextField("Year", text: $year)
-                TextField("Journal / venue", text: $journal)
+                TextField(type == .book || type == .report || type == .whitePaper ? "Publisher" : type == .bookChapter ? "Book (Editors, Title, pp.) / publisher" : "Journal / venue",
+                          text: $journal)
                 HStack { TextField("Vol.", text: $volume); TextField("Issue", text: $issue); TextField("Pages", text: $pages) }
+                TextField("DOI", text: $doi, prompt: Text("10.xxxx/… (optional)"))
                 TextField("Link", text: $url)
                 HStack {
                     Spacer()
@@ -454,6 +461,24 @@ struct EditForm: View {
         journal = ref.publication ?? ""
         volume = ref.indexing.volume ?? ""; issue = ref.indexing.issue ?? ""; pages = ref.indexing.pages ?? ""
         url = ref.url ?? ""
+        doi = ref.doi ?? ""
+        type = ref.publicationType
+    }
+
+    static func label(_ t: PublicationType) -> String {
+        switch t {
+        case .peerReviewed: "Peer-reviewed article"
+        case .preprint: "Preprint"
+        case .popularPress: "Popular press / news"
+        case .industryMagazine: "Industry magazine"
+        case .whitePaper: "White paper"
+        case .developerDocumentation: "Developer documentation"
+        case .book: "Book"
+        case .bookChapter: "Book chapter"
+        case .report: "Report"
+        case .other: "Other"
+        case .unclassified: "Unclassified"
+        }
     }
 
     func save() {
@@ -470,6 +495,9 @@ struct EditForm: View {
             r.publication = blank(journal)
             r.indexing.volume = blank(volume); r.indexing.issue = blank(issue); r.indexing.pages = blank(pages)
             r.url = blank(url)
+            r.publicationType = type
+            let newDOI = blank(doi).flatMap { DOI.normalize($0) ?? $0 }
+            r.doi = newDOI
             // Hand edits mean the record is no longer exactly what a registry said.
             if var p = r.provenance, p.source == .crossref || p.source == .datacite {
                 p.verified = false

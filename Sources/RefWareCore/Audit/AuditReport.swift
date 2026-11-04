@@ -4,7 +4,8 @@ extension ManuscriptAudit {
     /// Adds every entry found by its own DOI/arXiv ID to the library under
     /// `project` (reusing existing IDIs), and records the IDI on the audit.
     /// Title-only matches are not imported: they need a confirmed DOI first.
-    public mutating func importVerified(into library: inout Library, project: String, includeUnverified: Bool = false) -> (added: [IDI], reused: [IDI]) {
+    public mutating func importVerified(into library: inout Library, project: String, includeUnverified: Bool = false, subproject: String? = nil) -> (added: [IDI], reused: [IDI]) {
+        let tag = ProjectTag(project: project, subprojects: subproject.map { [$0] } ?? [])
         var added: [IDI] = [], reused: [IDI] = []
         var index = library.projects[project] ?? ProjectCitationIndex(project: project)
         for i in entries.indices {
@@ -12,17 +13,24 @@ extension ManuscriptAudit {
                 guard includeUnverified, entries[i].importedAs == nil else { continue }
                 // Unverified: the web page's cleaned record, or the entry exactly as written.
                 let e = entries[i].entry
+                // Already held: same link or DOI (the one found by title included), or same title, year and first author.
                 let existing = e.url.flatMap(library.reference(forURL:)) ?? e.doi.flatMap(library.reference(forDOI:))
+                    ?? entries[i].record?.doi.flatMap(library.reference(forDOI:))
+                    ?? e.title.flatMap { t in library.references.values.first { r in
+                        r.year == e.year && TextCleanup.comparable(r.title) == TextCleanup.comparable(t)
+                            && (r.authors.first.map { a in e.authors.first.map { ManuscriptAuditor.sameName(a.family, $0.family) } ?? false } ?? false)
+                    } }
                 if let ref = existing {
                     entries[i].importedAs = ref.id
                     reused.append(ref.id)
                 } else {
                     var ref: Reference
-                    if entries[i].match == .webPage, let r = entries[i].record {
-                        ref = Self.rebuilt(e, from: r, match: .webPage).makeReference(id: library.nextIDI, verified: false, projects: [ProjectTag(project: project)])
+                    if entries[i].match == .webPage || entries[i].match == .title, let r = entries[i].record {
+                        // Found by title (or web page) only: the registry's details, unverified until a person confirms.
+                        ref = Self.rebuilt(e, from: r, match: entries[i].match).makeReference(id: library.nextIDI, verified: false, projects: [tag])
                     } else {
                         ref = Self.reference(from: e, id: library.nextIDI)
-                        ref.projects = [ProjectTag(project: project)]
+                        ref.projects = [tag]
                     }
                     guard (try? library.add(ref)) != nil else { continue }
                     entries[i].importedAs = ref.id
@@ -36,7 +44,10 @@ extension ManuscriptAudit {
             if var ref = existing {
                 var changed = false
                 if !ref.projects.contains(where: { $0.project == project }) {
-                    ref.projects.append(ProjectTag(project: project))
+                    ref.projects.append(tag)
+                    changed = true
+                } else if let s = subproject, let j = ref.projects.firstIndex(where: { $0.project == project }), !ref.projects[j].subprojects.contains(s) {
+                    ref.projects[j].subprojects.append(s)
                     changed = true
                 }
                 // Same names, now with their diacritics: "Gulay" → "Gülay".
@@ -49,13 +60,14 @@ extension ManuscriptAudit {
                 entries[i].importedAs = ref.id
                 reused.append(ref.id)
             } else {
-                let ref = m2.makeReference(id: library.nextIDI, verified: true, projects: [ProjectTag(project: project)])
+                let ref = m2.makeReference(id: library.nextIDI, verified: true, projects: [tag])
                 guard (try? library.add(ref)) != nil else { continue }
                 entries[i].importedAs = ref.id
                 added.append(ref.id)
             }
             index.addReference(entries[i].importedAs!)
         }
+        if let s = subproject, !index.subprojects.contains(s) { index.subprojects.append(s) }
         library.projects[project] = index
         return (added, reused)
     }

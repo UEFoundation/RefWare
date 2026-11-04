@@ -18,7 +18,32 @@ func claims(_ args: Arguments) async throws {
         let next = Int(index.nextClaimID.dropFirst()) ?? 1
         var found: [Claim]
         var notes: [String] = []
-        if ClaimsListImporter.looksLikeClaimsList(content) {
+        let isMatrix = !ClaimsListImporter.looksLikeClaimsList(content) && CitationMatrixImporter.looksLikeCitationMatrix(content)
+        // A matrix's own bibliography goes in first (registry-checked; the rest as written, unverified),
+        // so its claims arrive linked.
+        if isMatrix, !rest.flags.contains("no-bibliography"), !ManuscriptParser.parse(content).entries.isEmpty {
+            let mailto = rest.options["mailto"] ?? ProcessInfo.processInfo.environment["REFWARE_MAILTO"] ?? RefWareConfig.load().mailto
+            let http = URLSessionHTTPClient()
+            var audit = await ManuscriptAuditor(cascade: SearchCascade(crossref: CrossrefClient(http: http, mailto: mailto), http: http))
+                .audit(content) { i, n in FileHandle.standardError.write(Data("  checking bibliography entry \(i)/\(n)…\r".utf8)) }
+            let (added, reused) = audit.importVerified(into: &library, project: project, includeUnverified: true, subproject: rest.options["subproject"])
+            index = library.projects[project] ?? index
+            let unverified = added.filter { library[$0]?.provenance?.verified != true }
+            notes.append("  Bibliography: \(added.count) reference(s) added, \(reused.count) already present"
+                + (unverified.isEmpty ? "." : "; \(unverified.count) unverified (IDI \(unverified.map(String.init).joined(separator: ", "))) — check each against the work, then `refware confirm`."))
+            if !added.isEmpty {
+                History.record(HistoryEvent(kind: .recordUpdated, project: project, subproject: rest.options["subproject"],
+                                            title: "\(added.count) reference(s) added from the bibliography of \(file)", idis: added), forLibraryAt: url)
+            }
+        }
+        if isMatrix {
+            let r = CitationMatrixImporter(file: file).claims(from: content, library: library, firstID: next)
+            found = r.claims
+            if !r.unresolved.isEmpty {
+                notes.append("  \(r.unresolved.count) cited work(s) not in the library yet (add them, then `claims link`; `refware audit <file> --import` adds those with DOIs):")
+                notes += r.unresolved.map { "    \($0)" }
+            }
+        } else if ClaimsListImporter.looksLikeClaimsList(content) {
             let r = ClaimsListImporter(file: file).claims(from: content, library: library, firstID: next)
             found = r.claims
             notes += r.unresolved.map { "  unresolved \($0)" }
@@ -28,7 +53,7 @@ func claims(_ args: Arguments) async throws {
             found = TranscriptImporter(file: file, speakers: speakers).claims(from: content, firstID: next)
         }
         guard !found.isEmpty else {
-            throw UsageError(description: "no claims found in \(file). RefWare imports chat transcripts (**Me**: / **Assistant**: turns with footnoted sources) and claims lists (## C1 headings, the claim as a > quote, then its in-text citations).")
+            throw UsageError(description: "no claims found in \(file). RefWare imports chat transcripts (**Me**: / **Assistant**: turns with footnoted sources), claims lists (## C1 headings, the claim as a > quote, then its in-text citations), and citation matrices (a **Claim:** line, then the works cited under it).")
         }
         if let s = rest.options["subproject"] { for i in found.indices { found[i].subproject = s } }
         let (added, existing) = index.addClaims(found)
@@ -49,7 +74,7 @@ func claims(_ args: Arguments) async throws {
                                     archived: archived, source: path), forLibraryAt: url)
         for n in notes { print(n) }
         let flagged = found.filter { !$0.flags.isEmpty }.count
-        print("Imported \(found.count) claims from \(file) (\(flagged) flagged). " + (ClaimsListImporter.looksLikeClaimsList(content) ? "Next: open RefWare ▸ Actions ▸ Verify claims, or `refware claims evidence <C#>`." : "Next: refware claims resolve --project \(project)"))
+        print("Imported \(found.count) claims from \(file) (\(flagged) flagged). " + (ClaimsListImporter.looksLikeClaimsList(content) || isMatrix ? "Next: open RefWare ▸ Actions ▸ Verify claims, or `refware claims evidence <C#>`." : "Next: refware claims resolve --project \(project)"))
 
     case "resolve":
         let mailto = rest.options["mailto"] ?? ProcessInfo.processInfo.environment["REFWARE_MAILTO"]

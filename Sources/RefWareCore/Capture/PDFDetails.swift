@@ -28,6 +28,7 @@ public enum PDFDetails {
                 .map { name in name.contains(" ") ? WebMetadataReader.parseName(name) : Author(family: name, isOrganization: true) }
         }
 
+        if authors.isEmpty { authors = printedAuthors(in: Array((pages.first ?? []).prefix(40))) }
         let head = firstLines.joined(separator: " ")
         // What the document says about itself beats the file's creation date — which, for a
         // web snapshot, is merely the day it was captured.
@@ -41,6 +42,32 @@ public enum PDFDetails {
                                  source: .manual, lookupKey: url.lastPathComponent)
         m.yearsSeen = year.map { [$0] } ?? []
         return m
+    }
+
+    /// A byline printed on the first page: "Authors: Jan Michalski, Stacey Winters", "By Jan Michalski and
+    /// Stacey Winters", or names run together without commas ("Authors: Jan Michalski Stacey Winters"),
+    /// which are paired two words at a time only when that splits them cleanly.
+    static func printedAuthors(in lines: [String]) -> [Author] {
+        guard let line = lines.first(where: { $0.range(of: #"^\s*(authors?|written by|by)\s*:?\s+\p{Lu}"#, options: [.regularExpression, .caseInsensitive]) != nil }) else { return [] }
+        let names = line.replacingOccurrences(of: #"^\s*(authors?|written by|by)\s*:?\s*"#, with: "", options: [.regularExpression, .caseInsensitive])
+            .trimmingCharacters(in: .whitespaces)
+        var parts: [String]
+        if names.range(of: #",|;|\band\b|&"#, options: .regularExpression) != nil {
+            parts = names.replacingOccurrences(of: #"\s*(,|;|\band\b|&)\s*"#, with: "|", options: .regularExpression)
+                .split(separator: "|").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        } else {
+            let words = names.split(separator: " ").map(String.init)
+            guard words.count >= 2, words.count % 2 == 0, words.count <= 20,
+                  words.allSatisfy({ $0.first?.isUppercase == true && $0.allSatisfy { $0.isLetter || "'’-.".contains($0) } }) else { return [] }
+            parts = stride(from: 0, to: words.count, by: 2).map { "\(words[$0]) \(words[$0 + 1])" }
+        }
+        // Each must look like a person's name: 2–4 capitalized words.
+        let people = parts.filter { p in
+            let w = p.split(separator: " ")
+            return (2...4).contains(w.count) && w.allSatisfy { $0.first?.isUppercase == true }
+        }
+        guard people.count == parts.count, !people.isEmpty else { return [] }
+        return people.map { WebMetadataReader.parseName($0) }
     }
 
     /// The year the document states on its first pages, most explicit first:

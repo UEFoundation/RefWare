@@ -43,7 +43,7 @@ The extension sends the page or PDF you're viewing to RefWare with one click or 
 
 ### Making a release
 
-`./scripts/make-release.sh 1.0` builds `dist/RefWare-1.0-macOS.zip`: a universal app, the extension, and install notes. Attach it to a GitHub Release.
+`./scripts/make-release.sh 1.1` builds `dist/RefWare-1.1-macOS.zip`: a universal app, the extension, and install notes. Attach it to a GitHub Release.
 
 ## Workflow
 
@@ -146,6 +146,7 @@ refware claims export --project UEF-0001 -o claims.md            # hand-off repo
 refware recheck --all                                            # re-verify quotes if PDFs were replaced
 ```
 
+- **Citation matrices** (an assistant's slide-by-slide or section-by-section sourcing: a **Claim:** line, then the works cited, each with a *Why:* note) import too. The matrix's own bibliography is checked against the registries and added first, so the claims arrive linked. Any figure an assistant attributes to a source becomes its own claim, to be checked against that source.
 - **Import** is mechanical. Footnotes are resolved per turn. A line becomes a candidate claim if it cites something, names a work, or says "research shows…" with no citation. Flags: `unlinked-title`, `contains-quotation`, `uncited-evidence`.
 - **Quotes** match on the exact letters and digits in order. Line breaks, hyphenation, ligatures, case and punctuation between words are ignored. A changed word or number is not, and nor are decimal points, thousands separators, signs, ranges or `% < > = ≤ ≥ ±` ("4.3" ≠ "43", "p < .05" ≠ "p > .05"). The stored quote is the PDF's own wording. Page = PDF page; line = nth text line on that page.
 - **Quotes are bound to their PDF** by SHA-256. Replacing a record's PDF rechecks its quotes; a quote no longer found is marked *stale* (kept on record, shown in Review and Stats) and no longer counts as support. A PDF already belonging to another record can't be attached to a second one — merge the records instead.

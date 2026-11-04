@@ -12,13 +12,21 @@ func audit(_ args: Arguments) async throws {
     let auditor = ManuscriptAuditor(cascade: SearchCascade(crossref: CrossrefClient(http: http, mailto: mailto), http: http))
     var result = await auditor.audit(text) { i, n in stderr("  checking reference \(i)/\(n)…") }
 
-    if args.flags.contains("import") || args.flags.contains("claims") {
+    let importAll = args.flags.contains("import-all")
+    if args.flags.contains("import") || importAll || args.flags.contains("claims") {
         guard let project else { throw UsageError(description: "--import needs --project UEF-XXXX") }
         let url = libraryURL(args)
         var library = try Library.load(from: url)
-        let (added, reused) = result.importVerified(into: &library, project: project)
+        let (added, reused) = result.importVerified(into: &library, project: project, includeUnverified: importAll, subproject: args.options["subproject"])
         try library.save(to: url)
-        stderr("Library: added \(added.count), already present \(reused.count) (DOI-matched entries only).")
+        if !added.isEmpty {
+            History.record(HistoryEvent(kind: .recordUpdated, project: project, subproject: args.options["subproject"],
+                                        title: "\(added.count) reference(s) added from the reference list of \(URL(fileURLWithPath: path).lastPathComponent)", idis: added), forLibraryAt: url)
+        }
+        let unverified = added.filter { library[$0]?.provenance?.verified != true }
+        stderr("Library: added \(added.count), already present \(reused.count)" + (importAll
+            ? (unverified.isEmpty ? "." : " — \(unverified.count) added as written and unverified (IDI \(unverified.map(String.init).joined(separator: ", "))): check each against the work itself, then Mark as Checked.")
+            : " (DOI-matched entries only; --import-all also adds the rest, unverified)."))
     }
 
     let file = URL(fileURLWithPath: path).lastPathComponent
