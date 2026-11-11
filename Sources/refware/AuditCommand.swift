@@ -19,6 +19,7 @@ func audit(_ args: Arguments) async throws {
         var library = try Library.load(from: url)
         let (added, reused) = result.importVerified(into: &library, project: project, includeUnverified: importAll, subproject: args.options["subproject"])
         try library.save(to: url)
+        for w in result.importWarnings { stderr("⚠︎ \(w)") }
         if !added.isEmpty {
             History.record(HistoryEvent(kind: .recordUpdated, project: project, subproject: args.options["subproject"],
                                         title: "\(added.count) reference(s) added from the reference list of \(URL(fileURLWithPath: path).lastPathComponent)", idis: added), forLibraryAt: url)

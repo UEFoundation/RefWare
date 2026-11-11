@@ -130,3 +130,44 @@ import Testing
         #expect(PDFDetails.printedAuthors(in: ["Authors: Jan Michalski Stacey"]).isEmpty)   // odd count: don't guess
     }
 }
+
+@Suite struct ReferenceListImportTests {
+    @Test func annotatedReadingListYieldsReferencesAndAnnotations() {
+        let text = """
+        # Prompt injection refs
+        1. Greshake et al. (2023), "Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection", arXiv:2302.12173. The foundational paper on indirect injection.
+        2. OWASP Top 10 for LLM Applications (2025 edition), entry LLM01: Prompt Injection at genai.owasp.org. The standard security-practitioner reference.
+        3. NIST AI 100-2 (2025 edition), Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations. Broader but authoritative.
+        """
+        let items = ReferenceListImporter.items(in: text)
+        #expect(items.count == 3)
+        #expect(items[0].reference.hasSuffix("https://doi.org/10.48550/arXiv.2302.12173"))
+        #expect(items[0].annotation == "The foundational paper on indirect injection.")
+        #expect(items[1].reference == "OWASP (2025). OWASP Top 10 for LLM Applications. https://genai.owasp.org")
+        #expect(items[2].reference.contains("Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations"))
+    }
+
+    @Test func plainBibliographyWithoutBulletsOrHeading() {
+        let text = """
+        Ashby, W. R. (1956). An introduction to cybernetics. Chapman & Hall.
+        Ryle, G. (1949). The concept of mind. University of Chicago Press.
+        Deloitte Global. (2025). AI ROI: The paradox of rising investment and elusive returns. Deloitte.
+        """
+        let items = ReferenceListImporter.items(in: text)
+        #expect(items.count == 3)
+        #expect(items.allSatisfy { $0.annotation == nil })
+        #expect(ManuscriptParser.parse(ReferenceListImporter.auditText(for: items)).entries.count == 3)
+    }
+
+    @Test func proseWithoutAWorkIsNotAReference() {
+        #expect(ReferenceListImporter.items(in: "- Remember to call the printer.\n- Buy coffee before the talk.").isEmpty)
+    }
+
+    @Test func sameWorkComparesTitlesNotIdentifiers() {
+        #expect(ManuscriptAudit.sameWork("Design Patterns for Securing LLM Agents against Prompt Injections",
+                                         "Design patterns for securing LLM agents against prompt injections"))
+        #expect(!ManuscriptAudit.sameWork("Design Patterns for Securing LLM Agents against Prompt Injections",
+                                          "Numerical stability of force-gradient integrators and their Hessian-free variants in lattice QCD simulations"))
+        #expect(ManuscriptAudit.sameWork("The Embodied Mind", "The Embodied Mind: Cognitive Science and Human Experience"))
+    }
+}

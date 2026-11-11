@@ -49,6 +49,8 @@ public struct ManuscriptAudit: Sendable {
     public var citationIssues: [CitationIssue]
     public var referenceHeadingLine: Int?
     public var citationCount: Int
+    /// Problems found while importing (e.g. a DOI that belongs to a different work).
+    public var importWarnings: [String] = []
 }
 
 /// Checks a manuscript's hand-written references against the registries and

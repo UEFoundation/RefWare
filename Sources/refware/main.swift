@@ -26,6 +26,9 @@ commands:
             --import adds DOI-verified references to the library; --import-all also adds the rest as written, unverified
             [--subproject S] files them in a sub-project; --claims also turns every cited sentence into a claim
 
+  import  <file> [--project UEF-XXXX] [--subproject S]   add whatever a file holds: a bibliography or reading list (references,
+            checked against the registries; the rest added as written, unverified), annotations (as claims), a claims list,
+            a citation matrix, or a chat transcript
   claims  Verify claims from a chat transcript (all need --project UEF-XXXX)
             import <chat.txt | claims.md | matrix.md> [--speaker NAME] [--self-domain a.com] [--subproject S]   (format detected automatically;
                                     a citation matrix's bibliography is added first, unverified where no DOI matches — --no-bibliography skips it)
@@ -93,7 +96,7 @@ do {
     // Who is acting — recorded on every logged action (agents: set REFWARE_ACTOR or pass --by).
     if let by = args.options["by"] { HistoryEvent.defaultActor = by }
     if let t = args.options["actor-type"] { Reviewer.typeOverride = ReviewEvent.ReviewerType(rawValue: t.lowercased()) }
-    let changesThings = ["add", "set", "claims", "pdf", "quote", "capture", "identify", "merge", "confirm", "unconfirm", "delete",
+    let changesThings = ["add", "set", "claims", "import", "pdf", "quote", "capture", "identify", "merge", "confirm", "unconfirm", "delete",
                          "project", "freeze", "unfreeze", "recheck", "distinct", "refresh", "tag"].contains(command)
     let readOnlyClaims = command == "claims" && ["list", "show", "history", "export"].contains(args.positionals.first ?? "")
     if changesThings, !readOnlyClaims, HistoryEvent.defaultActor == nil, isatty(STDIN_FILENO) == 0 {
@@ -105,6 +108,11 @@ do {
     case "set": try set(args)
     case "cite": try cite(args)
     case "claims": try await claims(args)
+    case "import":
+        // `refware import <file>`: references, claims, or both — whatever the file holds.
+        var a = args
+        a.positionals.insert("import", at: 0)
+        try await claims(a)
     case "pdf": try await pdf(args)
     case "quote": try quote(args)
     case "audit": try await audit(args)

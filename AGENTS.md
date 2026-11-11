@@ -46,7 +46,7 @@ Use `--json` on read commands for parseable output: `list`, `show`, `status`, `w
 | Fix a record from its PDF | `refware refresh <IDI>` then `--apply <key>` · `refware set <IDI> --authors "Family, Given; …" --year Y …` |
 | Fetch missing PDFs | `refware capture --missing` · `refware pdf orphans` · `refware pdf attach <IDI> <file> [--move]` |
 | Check a manuscript's citations | `refware audit draft.docx -o audit.md` |
-| Import claims | `refware claims import claims.md` (claims lists, chat transcripts and citation matrices are detected; a matrix's bibliography is added first, unverified where no DOI matches) |
+| Import anything that lists works | `refware import file.md` — bibliographies, reading lists and annotated lists (references checked; what each item says becomes a claim), claims lists, citation matrices, chat transcripts. A DOI or arXiv ID that resolves to a different work is reported, never trusted. |
 | Add a reference list | `refware audit refs.md --project P --import-all [--subproject S]` (registry-checked; the rest as written, unverified) |
 | Find and record evidence | `refware claims evidence C31` then `--record N` |
 | Propose a judgment | `refware claims set C31 --status supported --reason direct-quote --note "…"` (a person accepts) |

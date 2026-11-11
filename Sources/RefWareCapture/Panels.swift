@@ -159,7 +159,7 @@ struct ActionsPanel: View {
                 v.filter = .unverifiedPDFs
                 v.selection = store.insights.unverifiedPDFs.first?.id
             }
-            action("Import transcript or claims list…", "text.bubble") { Task { await importTranscript() } }
+            action("Import references, claims or a transcript…", "text.bubble") { Task { await importTranscript() } }
             action("Verify claims (find supporting passages)…", "quote.bubble") { ClaimsWindow.show() }
             action("Create new project or sub-project…", "folder.badge.plus") { createProject() }
             action("Export verified claims list…", "square.and.arrow.up") { exportClaims() }
@@ -184,7 +184,7 @@ struct ActionsPanel: View {
         guard let project = needProject() else { return }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.plainText, UTType(filenameExtension: "md") ?? .plainText]
-        panel.message = "Choose a chat transcript to import into \(project)"
+        panel.message = "Choose a file to import into \(project): a bibliography or reading list, a claims list, a citation matrix, or a chat transcript"
         guard panel.runModal() == .OK, let url = panel.url, let text = try? String(contentsOf: url, encoding: .utf8) else { return }
         let file = url.lastPathComponent
         var count = 0
@@ -201,6 +201,22 @@ struct ActionsPanel: View {
             }
             store.busy = nil
         }
+        // Anything else that lists works (a bibliography, a reading list, an annotated list).
+        let hasTurns = text.range(of: #"(?m)^\*\*[^*]+\*\*\s*:"#, options: .regularExpression) != nil
+        let isMatrixOrList = ClaimsListImporter.looksLikeClaimsList(text) || CitationMatrixImporter.looksLikeCitationMatrix(text)
+        var refItems: [ReferenceListImporter.Item] = []
+        var refAudit: ManuscriptAudit?
+        if !isMatrixOrList, !hasTurns || TranscriptImporter(file: file).claims(from: text, firstID: 1).isEmpty {
+            refItems = ReferenceListImporter.items(in: text)
+            if !refItems.isEmpty {
+                store.busy = "Checking \(refItems.count) reference(s) against Crossref, DataCite and arXiv…"
+                refAudit = await ManuscriptAuditor(cascade: store.cascade).audit(ReferenceListImporter.auditText(for: refItems)) { i, n in
+                    Task { @MainActor in store.busy = "Checking references against the registries… \(i) of \(n)" }
+                }
+                store.busy = nil
+            }
+        }
+        var refCount = 0
         var addedRefs: [IDI] = []
         guard store.mutate({ lib in
             var refNote = ""
@@ -224,13 +240,24 @@ struct ActionsPanel: View {
                 found = r.claims
                 let linked = found.filter { !$0.references.isEmpty }.count
                 extra = " \(linked) linked to library records; \(r.unresolved.count) citation(s) unresolved\(r.fragments.isEmpty ? "" : "; \(r.fragments.count) look cut off (\(r.fragments.joined(separator: ", ")))")."
+            } else if let a = refAudit {
+                let r = ReferenceListImporter.apply(refItems, audit: a, file: file, library: &lib, project: project,
+                                                    subproject: store.subproject, firstClaimID: next)
+                index = lib.projects[project] ?? index
+                found = r.claims
+                addedRefs = r.added
+                refCount = r.added.count + r.reused.count
+                extra = " References: \(r.added.count) added, \(r.reused.count) already in the library"
+                    + (r.unverified.isEmpty ? "." : "; \(r.unverified.count) unverified — check each against the work itself, then Mark as Checked.")
+                    + (r.skipped.isEmpty ? "" : " Not added (no usable title or year): \(r.skipped.joined(separator: "; ")).")
+                    + r.warnings.map { " ⚠︎ \($0)." }.joined()
             } else {
                 found = TranscriptImporter(file: file).claims(from: text, firstID: next)
             }
-            guard !found.isEmpty else {
-                throw UsageMessage("No claims found in \(file). RefWare imports chat transcripts (**Me**: / **Assistant**: turns), claims lists (## C1 headings with the claim as a > quote), and citation matrices (a **Claim:** line followed by the works cited).")
+            guard !found.isEmpty || refCount > 0 else {
+                throw UsageMessage("Nothing to import from \(file). RefWare imports reference lists and bibliographies (formal entries, or items naming a work with a DOI, arXiv ID, link, or author, year and title), annotated reading lists, chat transcripts (**Me**: / **Assistant**: turns), claims lists (## C1 headings) and citation matrices (a **Claim:** line followed by the works cited).")
             }
-            isList = ClaimsListImporter.looksLikeClaimsList(text) || CitationMatrixImporter.looksLikeCitationMatrix(text)
+            isList = isMatrixOrList || refCount > 0
             summary = extra
             if let s = store.subproject { for i in found.indices { found[i].subproject = s } }
             let (added, existing) = index.addClaims(found)
@@ -238,13 +265,13 @@ struct ActionsPanel: View {
             for id in added.flatMap(\.references) { index.addReference(id) }
             lib.projects[project] = index
             let skipped = existing.isEmpty ? "" : " \(existing.count) were already here (same text) and weren't added again."
-            return "Imported \(added.count) claims from \(file).\(extra)\(skipped)"
+            return "Imported \(refCount > 0 ? "\(refCount) references and " : "")\(added.count) claims from \(file).\(extra)\(skipped)"
         }) else { return }
         if !addedRefs.isEmpty {
             store.record(HistoryEvent(kind: .recordUpdated, project: project, subproject: store.subproject,
-                                      title: "\(addedRefs.count) reference(s) added from the bibliography of \(file)", idis: addedRefs))
+                                      title: "\(addedRefs.count) reference(s) added from \(file)", idis: addedRefs))
         }
-        store.record(HistoryEvent(kind: .transcriptImport, project: project, subproject: store.subproject, title: "\(file) — \(count) claims",
+        store.record(HistoryEvent(kind: .transcriptImport, project: project, subproject: store.subproject, title: "\(file) — \(count) claims\(refCount > 0 ? ", \(refCount) references" : "")",
                                   archived: History.archive((try? Data(contentsOf: url)) ?? Data(), named: file, project: project, forLibraryAt: store.libURL),
                                   source: url.path))
         // Claims lists arrive already linked to library records; chats need their sources looked up.

@@ -4,18 +4,37 @@ extension ManuscriptAudit {
     /// Adds every entry found by its own DOI/arXiv ID to the library under
     /// `project` (reusing existing IDIs), and records the IDI on the audit.
     /// Title-only matches are not imported: they need a confirmed DOI first.
+    /// Two titles name the same work: equal, one a prefix of the other (subtitles), or most of
+    /// the shorter one's words shared.
+    static func sameWork(_ a: String, _ b: String) -> Bool {
+        let x = TextCleanup.comparable(a), y = TextCleanup.comparable(b)
+        if x.isEmpty || y.isEmpty { return false }
+        if x == y || x.hasPrefix(y) || y.hasPrefix(x) { return true }
+        let wx = Set(x.split(separator: " ").filter { $0.count > 2 }), wy = Set(y.split(separator: " ").filter { $0.count > 2 })
+        guard !wx.isEmpty, !wy.isEmpty else { return false }
+        return Double(wx.intersection(wy).count) / Double(min(wx.count, wy.count)) >= 0.6
+    }
+
     public mutating func importVerified(into library: inout Library, project: String, includeUnverified: Bool = false, subproject: String? = nil) -> (added: [IDI], reused: [IDI]) {
         let tag = ProjectTag(project: project, subprojects: subproject.map { [$0] } ?? [])
         var added: [IDI] = [], reused: [IDI] = []
         var index = library.projects[project] ?? ProjectCitationIndex(project: project)
         for i in entries.indices {
-            guard entries[i].match == .doi, let m = entries[i].record else {
+            // A DOI that resolves to a different work (another title altogether) is a wrong DOI,
+            // not a verification: never import that registry record.
+            var doiMismatch = false
+            if entries[i].match == .doi, let m = entries[i].record, let t = entries[i].entry.title, !Self.sameWork(t, m.title) {
+                doiMismatch = true
+                importWarnings.append("\(entries[i].entry.doi.map { "DOI \($0)" } ?? "Its identifier") belongs to a different work (“\(m.title)”), not “\(t)” — added as written without it; find the right identifier")
+            }
+            guard entries[i].match == .doi, let m = entries[i].record, !doiMismatch else {
                 guard includeUnverified, entries[i].importedAs == nil else { continue }
                 // Unverified: the web page's cleaned record, or the entry exactly as written.
-                let e = entries[i].entry
+                var e = entries[i].entry
+                if doiMismatch { e.doi = nil; if e.url?.contains("doi.org") == true { e.url = nil } }
                 // Already held: same link or DOI (the one found by title included), or same title, year and first author.
                 let existing = e.url.flatMap(library.reference(forURL:)) ?? e.doi.flatMap(library.reference(forDOI:))
-                    ?? entries[i].record?.doi.flatMap(library.reference(forDOI:))
+                    ?? (doiMismatch ? nil : entries[i].record?.doi.flatMap(library.reference(forDOI:)))
                     ?? e.title.flatMap { t in library.references.values.first { r in
                         r.year == e.year && TextCleanup.comparable(r.title) == TextCleanup.comparable(t)
                             && (r.authors.first.map { a in e.authors.first.map { ManuscriptAuditor.sameName(a.family, $0.family) } ?? false } ?? false)
@@ -25,7 +44,10 @@ extension ManuscriptAudit {
                     reused.append(ref.id)
                 } else {
                     var ref: Reference
-                    if entries[i].match == .webPage || entries[i].match == .title, let r = entries[i].record {
+                    // A web page's own metadata is used only when it describes the same work ("Home" by a
+                    // site's CMS account doesn't); otherwise the entry as written, with its link.
+                    if !doiMismatch, entries[i].match == .title || (entries[i].match == .webPage && e.title.map { Self.sameWork($0, entries[i].record?.title ?? "") } ?? true),
+                       let r = entries[i].record {
                         // Found by title (or web page) only: the registry's details, unverified until a person confirms.
                         ref = Self.rebuilt(e, from: r, match: entries[i].match).makeReference(id: library.nextIDI, verified: false, projects: [tag])
                     } else {

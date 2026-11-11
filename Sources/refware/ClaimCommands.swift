@@ -18,6 +18,7 @@ func claims(_ args: Arguments) async throws {
         let next = Int(index.nextClaimID.dropFirst()) ?? 1
         var found: [Claim]
         var notes: [String] = []
+        var referenceCount = 0
         let isMatrix = !ClaimsListImporter.looksLikeClaimsList(content) && CitationMatrixImporter.looksLikeCitationMatrix(content)
         // A matrix's own bibliography goes in first (registry-checked; the rest as written, unverified),
         // so its claims arrive linked.
@@ -50,10 +51,33 @@ func claims(_ args: Arguments) async throws {
             if !r.fragments.isEmpty { notes.append("  looks cut off (check against the manuscript): \(r.fragments.joined(separator: ", "))") }
         } else {
             let speakers = rest.options["speaker"].map { Set($0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }) }
-            found = TranscriptImporter(file: file, speakers: speakers).claims(from: content, firstID: next)
+            let hasTurns = content.range(of: #"(?m)^\*\*[^*]+\*\*\s*:"#, options: .regularExpression) != nil
+            found = hasTurns ? TranscriptImporter(file: file, speakers: speakers).claims(from: content, firstID: next) : []
+            // Anything else that lists works — a bibliography, a reading list, an annotated list:
+            // the references go in (checked), and what each item says becomes a claim.
+            let items = found.isEmpty ? ReferenceListImporter.items(in: content) : []
+            if !items.isEmpty {
+                let mailto = rest.options["mailto"] ?? ProcessInfo.processInfo.environment["REFWARE_MAILTO"] ?? RefWareConfig.load().mailto
+                let http = URLSessionHTTPClient()
+                let audit = await ManuscriptAuditor(cascade: SearchCascade(crossref: CrossrefClient(http: http, mailto: mailto), http: http))
+                    .audit(ReferenceListImporter.auditText(for: items)) { i, n in FileHandle.standardError.write(Data("  checking reference \(i)/\(n)…\r".utf8)) }
+                let r = ReferenceListImporter.apply(items, audit: audit, file: file, library: &library, project: project,
+                                                    subproject: rest.options["subproject"], firstClaimID: next)
+                index = library.projects[project] ?? index
+                found = r.claims
+                referenceCount = r.added.count + r.reused.count
+                notes.append("  References: \(r.added.count) added, \(r.reused.count) already in the library"
+                    + (r.unverified.isEmpty ? "." : "; \(r.unverified.count) unverified (IDI \(r.unverified.map(String.init).joined(separator: ", "))) — check each against the work, then `refware confirm`."))
+                if !r.skipped.isEmpty { notes.append("  Not added (no usable title or year): \(r.skipped.joined(separator: "; "))") }
+                for w in r.warnings { notes.append("  ⚠︎ \(w)") }
+                if !r.added.isEmpty {
+                    History.record(HistoryEvent(kind: .recordUpdated, project: project, subproject: rest.options["subproject"],
+                                                title: "\(r.added.count) reference(s) added from \(file)", idis: r.added), forLibraryAt: url)
+                }
+            }
         }
-        guard !found.isEmpty else {
-            throw UsageError(description: "no claims found in \(file). RefWare imports chat transcripts (**Me**: / **Assistant**: turns with footnoted sources), claims lists (## C1 headings, the claim as a > quote, then its in-text citations), and citation matrices (a **Claim:** line, then the works cited under it).")
+        guard !found.isEmpty || referenceCount > 0 else {
+            throw UsageError(description: "nothing to import from \(file): no references or claims found. RefWare imports reference lists and bibliographies (formal entries, or items naming a work with a DOI, arXiv ID, link, or author, year and title), annotated reading lists, chat transcripts (**Me**: / **Assistant**: turns), claims lists (## C1 headings) and citation matrices (a **Claim:** line, then the works cited).")
         }
         if let s = rest.options["subproject"] { for i in found.indices { found[i].subproject = s } }
         let (added, existing) = index.addClaims(found)
@@ -70,11 +94,12 @@ func claims(_ args: Arguments) async throws {
         library.projects[project] = index
         try library.save(to: url)
         let archived = History.archive(try Data(contentsOf: URL(fileURLWithPath: path)), named: file, project: project, forLibraryAt: url)
-        History.record(HistoryEvent(kind: .transcriptImport, project: project, title: "\(file) — \(found.count) claims",
+        History.record(HistoryEvent(kind: .transcriptImport, project: project, title: "\(file) — \(found.count) claims\(referenceCount > 0 ? ", \(referenceCount) references" : "")",
                                     archived: archived, source: path), forLibraryAt: url)
         for n in notes { print(n) }
         let flagged = found.filter { !$0.flags.isEmpty }.count
-        print("Imported \(found.count) claims from \(file) (\(flagged) flagged). " + (ClaimsListImporter.looksLikeClaimsList(content) || isMatrix ? "Next: open RefWare ▸ Actions ▸ Verify claims, or `refware claims evidence <C#>`." : "Next: refware claims resolve --project \(project)"))
+        print("Imported \(referenceCount > 0 ? "\(referenceCount) references and " : "")\(found.count) claims from \(file) (\(flagged) flagged). "
+              + (ClaimsListImporter.looksLikeClaimsList(content) || isMatrix || referenceCount > 0 ? "Next: open RefWare ▸ Actions ▸ Verify claims, or `refware claims evidence <C#>`." : "Next: refware claims resolve --project \(project)"))
 
     case "resolve":
         let mailto = rest.options["mailto"] ?? ProcessInfo.processInfo.environment["REFWARE_MAILTO"]
