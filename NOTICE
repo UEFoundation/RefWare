@@ -194,3 +194,52 @@ and reviewed by the human lead.
   (Entry drafted by Claude Opus 5.5, the implementing instance, for Human
   Lead review; the field-report paragraph summarizes the reporting
   instance's own report.)
+
+2026-11-02 – 2026-11-11 — Claude Code / Opus 5.5 (Anthropic)
+  User-Reported Fixes, Citation-Matrix and Reference-List Import
+  (RefWare 1.1 and 1.2).
+
+  Context. After RefWare 1.0's release, the Human Lead used it on her own
+  library and reported problems as she found them: the sub-project dialog
+  did not work; a slide-by-slide citation matrix and bibliography produced
+  by Gemini (Google) could not be imported; "Fetch missing PDFs" fetched
+  nothing; a downloaded book could not be marked as a book; a report's
+  clearly printed authors were not read from its PDF, and its "checked"
+  option stayed unavailable; and a Markdown reading list was not recognized.
+  Each item below answers one of those reports.
+
+  RefWare 1.1 (2026-11-04).
+  - Citation-matrix import: each claim in an assistant's slide-by-slide
+    sourcing becomes a claim linked to the works it cites; figures
+    attributed to a source become claims of their own; the matrix's
+    bibliography is checked against the registries first, and the rest is
+    added as written and marked unverified.
+  - Merges and suggestions fill only the fields the other side states, so
+    they never erase existing details, and keep the PDF fingerprint.
+  - Printed bylines ("Authors: …", "By … and …") are read from a PDF's
+    first page. The record editor gained the publication type (book,
+    report, etc.) and the DOI.
+  - "Fetch missing PDFs" tries every open-access copy and explains what it
+    could not fetch. The sub-project dialog was fixed and its use logged.
+
+  RefWare 1.2 (2026-11-11).
+  - Reference-list import: bibliographies, reading lists and annotated
+    lists, with or without headings or list markers, are recognized. Each
+    reference is checked by DOI, by arXiv ID (through arXiv's DataCite
+    DOIs), by exact title and first author, or by its linked page; the rest
+    is added as written and marked unverified. What an annotated item says
+    about its source becomes a claim for a person to check against it.
+  - Identifier check: a DOI or arXiv ID that resolves to a different work is
+    reported and never trusted. This came from a mistake by the
+    implementing instance: an arXiv number it supplied in a reading list
+    belonged to an unrelated physics paper, and the first test import
+    accepted it as verified. Web-page details are likewise used only when
+    the page's title matches the entry.
+  170 tests (from 162 in 1.0).
+
+  Scope: the Human Lead tested each change on her own library, set
+  priorities, deferred the open-access fetch from Zenodo to a later
+  release, and approved both releases. Items 14 and 23 from the field report
+  remain deferred.
+  (Entry drafted by Claude Opus 5.5, the implementing instance, for Human
+  Lead review.) Reviewed and Approved by SMH on Nov. 13 2026.
