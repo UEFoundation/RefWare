@@ -32,6 +32,10 @@ func worklist(_ args: Arguments) throws {
         for g in shared { print("  IDI " + g.map(String.init).joined(separator: ", IDI ")) }
     }
     if !stale.isEmpty { print("Stale quotes (\(stale.count)) — their PDF changed and they weren't found again: \(stale.joined(separator: ", "))") }
+    let staleOutputs = library.projects.sorted { $0.key < $1.key }.flatMap { p in p.value.claims.filter { ($0.outputs ?? []).contains { !$0.isCurrent } }.map { "\(p.key) \($0.id)" } }
+    if !staleOutputs.isEmpty { print("Claims resting on stale analysis outputs (\(staleOutputs.count)) — the file changed and the result is gone: \(staleOutputs.joined(separator: ", "))") }
+    let warned = library.datasets.filter { !$0.dataset!.warnings.isEmpty }
+    if !warned.isEmpty { print("Datasets with archive warnings (\(warned.count)): " + warned.map { "IDI \($0.id) \($0.dataset!.accession)" }.joined(separator: ", ")) }
     if !revalidate.isEmpty { print("Supported claims without a current quote (\(revalidate.count)): \(revalidate.joined(separator: ", "))") }
     func line(_ r: Reference) -> String { "  IDI \(r.id)  \(CitationFormatter(references: [r]).inline([r]))  \(r.title.prefix(70))\(r.fileName == nil ? "  · no PDF" : "")" }
     print("Possible duplicates (\(dupes.count))")
@@ -118,23 +122,47 @@ func recheck(_ args: Arguments) throws {
     var library = try Library.load(from: libURL)
     let dir = Library.pdfDirectory(forLibraryAt: libURL)
     let quoted = Set(library.projects.values.flatMap(\.quotes).map(\.reference))
-    let ids = args.flags.contains("all") || args.positionals.isEmpty ? quoted.sorted() : args.positionals.compactMap { Int($0) }
+    let outputsOnly = args.flags.contains("outputs") && !args.flags.contains("all") && args.positionals.isEmpty
+    let ids = outputsOnly ? [] : args.flags.contains("all") || args.positionals.isEmpty ? quoted.sorted() : args.positionals.compactMap { Int($0) }
     var total = Library.RecheckResult()
     for id in ids {
         let r = library.revalidateQuotes(of: id, pdfDirectory: dir)
         total.unchanged += r.unchanged; total.reverified += r.reverified; total.stale += r.stale; total.supportNeedsRecheck += r.supportNeedsRecheck
     }
+    // Analysis outputs bound to claims: whole library on --all / no arguments, or with --outputs.
+    let outputLog = (args.flags.contains("all") || args.positionals.isEmpty || args.flags.contains("outputs")) ? library.recheckOutputs() : []
     try library.save(to: libURL)
+    let newlyStale = outputLog.filter { if case .stale = $0.outcome { return true }; return false }
+    if !newlyStale.isEmpty {
+        History.record(HistoryEvent(kind: .claimEdited, title: "Recheck: \(newlyStale.count) analysis-output excerpt(s) stale — \(Set(newlyStale.map { "\($0.project) \($0.claim)" }).sorted().joined(separator: ", "))"), forLibraryAt: libURL)
+    }
     let stale = total.stale.sorted(), recheckClaims = Array(Set(total.supportNeedsRecheck)).sorted()
     if !total.reverified.isEmpty || !stale.isEmpty {
         History.record(HistoryEvent(kind: .quoteVerified, title: "Recheck: \(total.reverified.count) re-verified, \(stale.count) stale", quoteTags: total.reverified + stale), forLibraryAt: libURL)
     }
     if args.flags.contains("json") {
-        struct Out: Encodable { var unchanged: [String]; var reverified: [String]; var stale: [String]; var supportedClaimsNeedingRevalidation: [String] }
-        try printJSON(Out(unchanged: total.unchanged.sorted(), reverified: total.reverified.sorted(), stale: stale, supportedClaimsNeedingRevalidation: recheckClaims))
+        struct StaleOutput: Encodable { var project: String; var claim: String; var file: String; var excerpt: String; var reason: String }
+        struct Out: Encodable { var unchanged: [String]; var reverified: [String]; var stale: [String]; var supportedClaimsNeedingRevalidation: [String]; var staleOutputs: [StaleOutput] }
+        try printJSON(Out(unchanged: total.unchanged.sorted(), reverified: total.reverified.sorted(), stale: stale, supportedClaimsNeedingRevalidation: recheckClaims,
+                          staleOutputs: outputLog.filter { $0.evidence.staleSince != nil }.map { StaleOutput(project: $0.project, claim: $0.claim, file: $0.evidence.path, excerpt: $0.evidence.excerpt, reason: $0.evidence.staleReason ?? "") }))
         return
     }
-    print("Quotes: \(total.unchanged.count) unchanged, \(total.reverified.count) re-verified against the current PDF, \(stale.count) stale.")
+    if !outputsOnly { print("Quotes: \(total.unchanged.count) unchanged, \(total.reverified.count) re-verified against the current PDF, \(stale.count) stale.") }
+    if outputsOnly && outputLog.isEmpty { print("No analysis outputs are bound to claims yet.") }
+    if !outputLog.isEmpty {
+        var unchanged = 0, moved = 0, still = 0
+        for o in outputLog {
+            switch o.outcome {
+            case .unchanged: unchanged += 1
+            case .stillPresent: moved += 1
+            case .stillStale: still += 1
+            case .restored(let line): print("  Restored: \(o.project) \(o.claim) — “\(o.evidence.excerpt.prefix(60))” is back in \(o.evidence.path):\(line)")
+            case .stale(let why): print("  STALE: \(o.project) \(o.claim) — “\(o.evidence.excerpt.prefix(60))” \(why) (\(o.evidence.path))")
+            }
+        }
+        print("Analysis outputs: \(unchanged) unchanged, \(moved) in files that changed but still contain the excerpt, \(newlyStale.count) newly stale\(still > 0 ? ", \(still) still stale" : "").")
+        if !newlyStale.isEmpty { print("  Re-derive each stale result and rebind it (`refware claims output`), or revise the claim. Its status needs a person's re-check.") }
+    }
     if !stale.isEmpty { print("  Stale (no longer in the record's PDF — re-record from the right PDF, or drop): \(stale.joined(separator: ", "))") }
     if !recheckClaims.isEmpty { print("  Supported claims now without a current quote (judgment needs revalidating): \(recheckClaims.joined(separator: ", "))") }
 }

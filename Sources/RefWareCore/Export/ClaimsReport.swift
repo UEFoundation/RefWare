@@ -92,7 +92,10 @@ public struct ClaimsReport: Sendable {
             var shown = Set<IDI>()
             for s in claim.sources {
                 if let id = s.reference, !shown.insert(id).inserted { continue }
-                if let id = s.reference, let ref = library[id] {
+                if let id = s.reference, let ref = library[id], let d = ref.dataset {
+                    lines.append("  - `[IDI \(id)]` dataset **\(d.accession)** — *\(d.archiveTitle ?? ref.title)* (\(d.repository)\(d.runs.map { ", \($0) runs" } ?? ""))" +
+                                 (d.warnings.isEmpty ? "" : " ⚠️ \(d.warnings.count) archive warning(s) — `refware dataset show \(d.accession)`"))
+                } else if let id = s.reference, let ref = library[id] {
                     var kind = ref.arxiv != nil && ref.doi == nil ? "arXiv preprint" : ref.publicationType.rawValue
                     if ref.provenance?.source == .webPage { kind = "web page — not a scholarly source" }
                     let pdf = ref.fileName == nil ? " · no PDF" : ""
@@ -122,6 +125,13 @@ public struct ClaimsReport: Sendable {
                 let loc = [q.page.map { "p. \($0)" }, q.line.map { "line \($0)" }].compactMap { $0 }.joined(separator: ", ")
                 let cite = q.page.map { "`[IDI \(q.reference), p. \($0)]`" } ?? "`[IDI \(q.reference)]`"
                 lines.append("  - **\(q.tag)** (\(who), \(loc)): \u{201C}\(q.text)\u{201D} → cite as \(cite)")
+            }
+        }
+        if let outs = claim.outputs, !outs.isEmpty {
+            lines.append("- **Computed from:**")
+            for o in outs {
+                let state = o.isCurrent ? "current" : "⚠️ STALE — \(o.staleReason ?? "file changed")"
+                lines.append("  - `\(o.path)`, line \(o.line): \u{201C}\(o.excerpt)\u{201D} (\(state); bound \(o.boundOn.formatted(date: .abbreviated, time: .shortened))\(o.by.map { " by \($0)" } ?? ""))")
             }
         }
         for w in Self.unique(warnings) { lines.append("- ⚠️ \(w)") }

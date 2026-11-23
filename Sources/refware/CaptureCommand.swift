@@ -36,13 +36,16 @@ func captureSummary(_ r: CaptureResult) -> String {
 
 /// `refware config` — defaults for one-click capture.
 func configure(_ args: Arguments) throws {
-    var config = RefWareConfig.load()
+    var config = args.options.isEmpty ? RefWareConfig.load() : RefWareConfig.loadSaved()
     if let lib = args.options["library"] { config.library = URL(fileURLWithPath: (lib as NSString).expandingTildeInPath).standardizedFileURL.path }
     if let p = args.options["project"] { config.project = p }
     if let m = args.options["mailto"] { config.mailto = m }
     if let r = args.options["reviewer"] { config.reviewer = r }
     if !args.options.isEmpty { try config.save() }
     print("library:  \(config.library ?? "(unset)")\nproject:  \(config.project ?? "(unset)")\nmailto:   \(config.mailto ?? "(unset)")\nreviewer: \(config.reviewer ?? "(unset — the app uses your Mac account's initials)")\n(\(RefWareConfig.fileURL.path))")
+    if let p = ProcessInfo.processInfo.environment["REFWARE_PROJECT"], !p.isEmpty, args.options.isEmpty {
+        print("(project \(p) comes from REFWARE_PROJECT in this session; the saved default is \(RefWareConfig.loadSaved().project ?? "unset"))")
+    }
 }
 
 /// `refware capture --missing` — every record with a link (or DOI) but no PDF gets one:
@@ -55,7 +58,7 @@ func captureMissing(_ args: Arguments) async throws {
     let http = URLSessionHTTPClient()
     let capture = Capture(cascade: SearchCascade(crossref: CrossrefClient(http: http, mailto: mailto), http: http), http: http,
                           snapshotter: WebSnapshotter(), unpaywall: mailto.map { UnpaywallClient(http: http, email: $0) })
-    let todo = library.references.values.filter { $0.fileName == nil && ($0.url != nil || $0.doi != nil) }.sorted { $0.id < $1.id }
+    let todo = library.references.values.filter { $0.dataset == nil && $0.fileName == nil && ($0.url != nil || $0.doi != nil) }.sorted { $0.id < $1.id }
     print("\(todo.count) record(s) without a PDF.")
     for ref in todo {
         let link = ref.url ?? "https://doi.org/\(ref.doi!)"

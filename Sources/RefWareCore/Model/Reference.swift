@@ -80,6 +80,8 @@ public struct Provenance: Codable, Hashable, Sendable {
         case webPage = "web-page"
         /// Read from a publisher/archive cover sheet inside the PDF (e.g. JSTOR).
         case pdfCover = "pdf-cover"
+        /// A public sequence archive (ENA / NCBI SRA, BioProject, GEO).
+        case archive
         case manual
     }
 
@@ -129,6 +131,8 @@ public struct Reference: Codable, Hashable, Sendable, Identifiable {
     public var added: Date?
     /// SHA-256 of the attached PDF (identifies the exact document quotes were checked against).
     public var pdfSHA256: String?
+    /// Set when the record is a public dataset (BioProject, SRA study, GEO series…) rather than a paper.
+    public var dataset: DatasetInfo?
 
     /// Import date: `added`, or for older records the date their metadata was retrieved.
     public var importDate: Date? { added ?? provenance?.retrieved }

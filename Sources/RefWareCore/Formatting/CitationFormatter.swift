@@ -83,7 +83,14 @@ public struct CitationFormatter: Sendable {
 
     public func referenceEntry(_ ref: Reference) -> String {
         var parts: [String] = []
-        let title = isStandalone(ref) ? italicTitle(ref.title) : Self.terminated(ref.title)
+        var title = isStandalone(ref) ? italicTitle(ref.title) : Self.terminated(ref.title)
+        if let d = ref.dataset {
+            // APA 7 data set: *Title* [Data set]. Repository. URL — the accession stays visible in the title element.
+            let t = ref.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let bare = t.hasSuffix(".") ? String(t.dropLast()) : t
+            let named = bare.contains(d.accession) ? bare : "\(bare) (\(d.accession))"
+            title = (markup == .markdown ? "*\(named)*" : named) + " [Data set]."
+        }
 
         if ref.authors.isEmpty {
             // APA: with no author, the title moves into the author position.

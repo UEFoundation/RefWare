@@ -129,6 +129,27 @@ refware audit draft.docx --project UEF-0001 -o audit.md --references-out refs.tx
   - entries that are never cited.
 - **Rebuilt reference list.** Alphabetized, generated from the registry records; up to 10 authors named, then et al. (house style). Entries that weren't found are kept as written and marked ❓.
 
+## Public datasets and accession numbers
+
+```sh
+refware dataset add PRJNA516684 --project UEF-0001 --paper 12 --expect "couples, penile and vaginal 16S"
+refware accessions manuscript.md notes/ -o accessions.md   # every accession in the text, checked
+refware manifest samples.tsv -o manifest-check.md          # a sample manifest, row by row
+refware fastq reads/                                       # downloaded reads: complete, partial, truncated, corrupt
+refware dataset key PRJNA516684 --name couple --pattern '…' --groups date,couple,member
+refware claims output C12 results/couples.txt --text "15 of 67 (22.4%)" --dataset PRJNA516684
+refware dataset table --project UEF-0001 -o S1.md
+```
+
+- **Dataset records.** BioProjects, SRA studies, GEO series and dbGaP studies become library records (IDIs) with what the archive says: title, organism, assay, platform, samples, runs, access, and the papers whose text cites them (Europe PMC). They are cited as APA data sets.
+- **Never trusted on a mismatch.** `--expect` says what you think the dataset is; a contradiction (an archaeology genome project given as SIBO data, WGS given as 16S) means nothing is added. A linked paper that no index connects to the dataset is reported.
+- **Run tables** are saved as dated, SHA-256-fingerprinted files next to the library. `dataset runs --refresh` fetches a new one and lists what changed.
+- **Accession audit.** Flags accessions that don't exist (with one-keystroke neighbours), the wrong kind ("BioProject GSE…"), a run named beside a study it isn't in, an SRA study paired with another project's BioProject, and stated run or sample counts that don't match.
+- **Manifest check.** Every run must exist and belong to the project and sample its row names; read counts must match. A typo that lands on another study's run is traced to the run you meant.
+- **Reads.** Full `.fastq.gz` downloads are checked by size and MD5; plain or partial FASTQ by record structure and read count.
+- **Key rules** for reading participant, couple, visit or site out of sample names are recorded, attributed and versioned. Applying one reports runs per key.
+- **Computed results** are bound to the output file and line they came from. A rerun that removes the number makes the claim's evidence stale (kept, never deleted).
+
 ## Verifying claims from a chat transcript
 
 ```sh
@@ -183,6 +204,7 @@ refware recheck --all                                            # re-verify quo
 - `Sources/RefWareCore/Search/` — Crossref client, web `citation_*` meta reader, cascade
 - `Sources/RefWareCore/Parsing/` — tag parser, document processor
 - `Sources/RefWareCore/Formatting/` — APA formatter
+- `Sources/RefWareCore/Datasets/` — accessions, dataset records, archive client (ENA, NCBI, Europe PMC), run tables, key rules, manifest/FASTQ/accession checks, output bindings
 - `Sources/refware/` — CLI
 
 ## License

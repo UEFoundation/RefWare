@@ -43,6 +43,8 @@ commands:
             export [-o claims.md]   hand-off report
             import-notes <edited.md>  keep notes you typed into an exported report (stored on each claim)
             evidence <C#> [--record N]  candidate supporting passages from the linked PDFs; record one as an IDI-Q
+            output <C#> <file> --text "exact text" [--dataset IDI|ACC,…]   bind a computed result to its output file (SHA-256);
+                                    add --text "…" --output FILE [--excerpt "…"] [--dataset …] does both in one step
   capture Send a page, PDF link, or DOI to the library — metadata plus the PDF (or a dated web snapshot)
             <url> [--project UEF-XXXX] [--claim C#] [--replace]
             --missing                every record with a link but no PDF
@@ -50,10 +52,22 @@ commands:
   nohit   [--last] [--quotes]   records (or IDI-Qs) never cited in a cite/ref build (or not in the last one)
   project list | create UEF-XXXX [--subproject S] | add-subproject UEF-XXXX "S"
           policy UEF-XXXX [--ai-may-finalize yes|no]   may an AI's judgment set a claim's status? (default: no — it's a proposal)
+  dataset Public sequence datasets (BioProject, SRA study, GEO series, dbGaP) as library records, checked against the archives
+            add <ACC>… [--project P] [--paper IDI] [--expect "what you think it is"] [--no-runs]   look up, check, save the run table;
+                                    refused if the archive contradicts --expect (--anyway to override)
+            list [--all] · show <IDI|ACC> · runs <IDI|ACC> [--refresh] [-o runs.tsv] · diff <IDI|ACC>   run tables are dated and fingerprinted
+            key <IDI|ACC> --name N --pattern REGEX --groups a,b [--field alias] [--note "…"]   how sample names split into keys
+            keys <IDI|ACC> [--rule N] [-o crosswalk.tsv] · link <IDI|ACC> --paper IDI · table [--project P] [-o S1.md|.tsv]
+  accessions <file|folder>… [--project P] [-o report.md] [--everything]   find every accession in the text and check it: exists, right kind,
+            run belongs to the study named beside it, stated run/sample counts (folders: skips work*/fastq*/ref scratch unless --everything)
+  manifest <samples.tsv|.csv> [-o report.md] [--run-column C …]   check a sample manifest row by row against the run tables
+  fastq   <folder> [-o report.md]   downloaded reads vs the archive: size + MD5 for .fastq.gz, record structure + read count otherwise
+  export  --project P --to <folder> [--no-pdfs]   references.md, datasets.tsv, claims.md, PDFs and run tables as plain copies
   freeze  [--note "as submitted"]   lock the library read-only (builds still work);  unfreeze  to unlock
   open    Open the RefWare library window (also: launch RefWare from the Dock or Spotlight)
   worklist [--json]             what RefWare Review shows: duplicates, placeholders, unverified, shared PDFs, stale quotes
-  recheck [<IDI>… | --all]      re-verify recorded quotes against each record's current PDF (stale ones are flagged, never deleted)
+  recheck [<IDI>… | --all | --outputs]   re-verify quotes against each record's current PDF, and bound analysis outputs against
+                                their files (stale ones are flagged, never deleted)
   refresh <IDI> [--apply KEY]   suggestions from the record's PDF (properties, cover, DOI), the registry, the library
   recent  [--hours 24]          what happened lately — captures, quotes, builds, merges — and who did it
   review  Open the RefWare Review window (placeholders, unverified records, duplicates)
@@ -76,7 +90,8 @@ global options:
   --actor-type human|ai   (default: $REFWARE_ACTOR_TYPE; a named actor without a type is taken to be an AI agent)
                    AI agents may also set $REFWARE_MODEL (recorded on review events)
   --json           machine-readable output (show, list, status, worklist, refresh, recent, claims list/evidence)
-  --library PATH   library file (default: $REFWARE_LIBRARY or ./library.json)
+  --library PATH   library file (default: $REFWARE_LIBRARY, else the configured library)
+  --project P      default project: $REFWARE_PROJECT, else the configured one (set per session, e.g. by MAVIS)
   --mailto EMAIL   contact address for Crossref (default: $REFWARE_MAILTO)
 
 publication types: \(PublicationType.allCases.map(\.rawValue).joined(separator: ", "))
@@ -97,8 +112,9 @@ do {
     if let by = args.options["by"] { HistoryEvent.defaultActor = by }
     if let t = args.options["actor-type"] { Reviewer.typeOverride = ReviewEvent.ReviewerType(rawValue: t.lowercased()) }
     let changesThings = ["add", "set", "claims", "import", "pdf", "quote", "capture", "identify", "merge", "confirm", "unconfirm", "delete",
-                         "project", "freeze", "unfreeze", "recheck", "distinct", "refresh", "tag"].contains(command)
-    let readOnlyClaims = command == "claims" && ["list", "show", "history", "export"].contains(args.positionals.first ?? "")
+                         "project", "freeze", "unfreeze", "recheck", "distinct", "refresh", "tag", "dataset"].contains(command)
+    let readOnlyClaims = (command == "claims" && ["list", "show", "history", "export"].contains(args.positionals.first ?? ""))
+        || (command == "dataset" && ["list", "show", "keys", "table", "diff", ""].contains(args.positionals.first ?? ""))
     if changesThings, !readOnlyClaims, HistoryEvent.defaultActor == nil, isatty(STDIN_FILENO) == 0 {
         FileHandle.standardError.write(Data("note: no actor set — changes are logged without a name. Agents: export REFWARE_ACTOR=\"<your name>\" or pass --by.\n".utf8))
     }
@@ -114,6 +130,11 @@ do {
         a.positionals.insert("import", at: 0)
         try await claims(a)
     case "pdf": try await pdf(args)
+    case "dataset", "datasets": try await dataset(args)
+    case "accessions", "accession": try await accessions(args)
+    case "manifest": try await manifest(args)
+    case "fastq": try await fastq(args)
+    case "export": try export(args)
     case "quote": try quote(args)
     case "audit": try await audit(args)
     case "capture": try await capture(args)

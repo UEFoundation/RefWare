@@ -76,6 +76,7 @@ func status(_ args: Arguments) throws {
     let library = try Library.load(from: libURL)
     let history = History.load(forLibraryAt: libURL)
     let project = args.options["project"] ?? RefWareConfig.load().project
+    try requireKnownProject(project, subproject: args.options["subproject"], in: library)
     let i = LibraryInsights(library: library, history: history, project: project, subproject: args.options["subproject"])
     if args.flags.contains("json") {
         struct Out: Encodable {
@@ -102,12 +103,19 @@ func status(_ args: Arguments) throws {
     let date = { (d: Date?) in d.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "never" }
     print("\(project ?? "Whole library")\(args.options["subproject"].map { " › \($0)" } ?? "")\(library.frozen.map { "  ❄︎ frozen since \($0.on.formatted(date: .abbreviated, time: .omitted))" } ?? "")")
     print("Stats")
-    print("  PDFs (IDIs with a PDF)            \(i.withPDF.count) of \(i.references.count)")
+    let papers = i.references.filter { $0.dataset == nil }.count
+    print("  PDFs (IDIs with a PDF)            \(i.withPDF.count) of \(papers)\(papers == i.references.count ? "" : " papers (+ \(i.references.count - papers) datasets)")")
     print("  Verified quotations (on claims)   \(i.verifiedQuotes.filter { i.claimQuoteTags.contains($0.tag) }.count) of \(i.verifiedQuotes.count) verified")
     print("  Supported claims                  \(pct(i.supportedClaims.count, i.claims.count))")
     if !i.questionedClaims.isEmpty { print("  Questioned claims (open flags)    \(i.questionedClaims.map(\.id).joined(separator: ", "))") }
     if !i.claimsWithProposals.isEmpty { print("  AI proposals awaiting a person    \(i.claimsWithProposals.map(\.id).joined(separator: ", "))") }
     if !i.staleQuotes.isEmpty { print("  Stale quotations (PDF changed)    \(i.staleQuotes.map(\.tag).joined(separator: ", "))  — refware recheck") }
+    if let project, let index = library.projects[project] {
+        let staleOut = index.claims.filter { ($0.outputs ?? []).contains { !$0.isCurrent } }.map(\.id)
+        let ds = library.datasets.filter { $0.projects.contains { $0.project == project } }
+        if !ds.isEmpty { print("  Datasets                          \(ds.count)\(ds.contains { !$0.dataset!.warnings.isEmpty } ? " (\(ds.filter { !$0.dataset!.warnings.isEmpty }.count) with archive warnings)" : "")") }
+        if !staleOut.isEmpty { print("  Stale analysis outputs (rerun)    \(staleOut.joined(separator: ", "))  — re-derive and rebind (claims output)") }
+    }
     print("  Sub-projects                      \(i.subprojectCount)")
     print("  Last claims-list export           \(date(history.last(.claimsExport, project: project)?.date))")
     print("  Last cite/ref build               \(date(history.last(.build, project: project)?.date))")
@@ -123,12 +131,27 @@ func status(_ args: Arguments) throws {
 func nohit(_ args: Arguments) throws {
     let libURL = libraryURL(args)
     let library = try Library.load(from: libURL)
+    let project = args.options["project"] ?? RefWareConfig.load().project
+    try requireKnownProject(project, subproject: args.options["subproject"], in: library)
     let i = LibraryInsights(library: library, history: History.load(forLibraryAt: libURL),
-                            project: args.options["project"] ?? RefWareConfig.load().project, subproject: args.options["subproject"])
+                            project: project, subproject: args.options["subproject"])
     let scope: LibraryInsights.BuildScope = args.flags.contains("last") ? .last : .ever
     if args.flags.contains("quotes") {
         for q in i.quotesNotHit(scope) { print("\(q.tag)  p. \(q.page ?? 0)  \(q.text.prefix(80))") }
     } else {
         for r in i.notHit(scope) { print("IDI \(r.id)  \(CitationFormatter(references: [r]).inline([r]))  \(r.title)") }
+    }
+}
+
+/// A project (or sub-project) that isn't in the library is an error, not an empty or whole-library report.
+func requireKnownProject(_ project: String?, subproject: String?, in library: Library) throws {
+    guard let project else { return }
+    let tagged = library.references.values.contains { $0.projects.contains { $0.project == project } }
+    guard let index = library.projects[project] ?? (tagged ? ProjectCitationIndex(project: project) : nil) else {
+        let names = library.projects.keys.sorted()
+        throw UsageError(description: "there is no project \(project) in this library (projects: \(names.isEmpty ? "none" : names.joined(separator: ", "))) — create it with `refware project create \(project)`")
+    }
+    if let subproject, !index.subprojects.contains(subproject) {
+        throw UsageError(description: "\(project) has no sub-project “\(subproject)” (it has: \(index.subprojects.isEmpty ? "none" : index.subprojects.joined(separator: "; ")))")
     }
 }

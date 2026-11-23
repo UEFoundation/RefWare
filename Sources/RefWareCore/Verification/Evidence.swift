@@ -22,7 +22,7 @@ public enum EvidenceError: Error, CustomStringConvertible, Equatable {
         case .quoteTooShort: "quote is too short to verify (needs ≥ \(QuoteVerifier.minimumLength) letters/digits)"
         case .referenceNotLinkedToClaim(let id, let claim):
             "IDI \(id) is not among \(claim)'s sources — link it with `claims link` first if it really is the source"
-        case .statusNeedsQuote(let claim): "\(claim) can't be marked supported without at least one current verified quote from its sources (stale quotes — from a replaced PDF — don't count until re-verified)"
+        case .statusNeedsQuote(let claim): "\(claim) can't be marked supported without at least one current verified quote from its sources, or a current analysis-output excerpt (`claims output`) — stale ones (from a replaced PDF or a rerun) don't count until re-verified"
         case .notAPDF(let what): "\(what) is not a PDF"
         }
     }
@@ -124,6 +124,7 @@ extension Library {
         guard let c = index.claimIndex(claimID) else { throw EvidenceError.unknownClaim(claimID) }
         let refs = Set(index.claims[c].references)
         let backed = index.claims[c].quotes.compactMap(index.quote(tag:)).contains { $0.isCurrent && refs.contains($0.reference) }
+            || (index.claims[c].outputs ?? []).contains(where: \.isCurrent)
         guard backed else { throw EvidenceError.statusNeedsQuote(index.claims[c].id) }
     }
 }

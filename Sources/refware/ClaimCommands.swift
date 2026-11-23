@@ -282,12 +282,33 @@ func claims(_ args: Arguments) async throws {
     case "add":
         guard let text = rest.options["text"] else { throw UsageError(description: "claims add needs --text") }
         var index = library.projects[project] ?? ProjectCitationIndex(project: project)
-        let claim = Claim(id: index.nextClaimID, text: text)
+        var claim = Claim(id: index.nextClaimID, text: text)
+        claim.subproject = rest.options["subproject"]
         index.claims.append(claim)
         library.projects[project] = index
+        // A computed finding: bind the output excerpt it rests on in the same step.
+        if let file = rest.options["output"] {
+            let excerpt = rest.options["excerpt"] ?? text
+            let ev = try library.bindOutput(project: project, claim: claim.id, file: URL(fileURLWithPath: (file as NSString).expandingTildeInPath),
+                                            excerpt: excerpt, datasets: try datasetIDIs(rest, library), by: HistoryEvent.defaultActor)
+            print("  bound to \(ev.path):\(ev.line) (SHA-256 \(ev.sha256.prefix(12))…)")
+        }
         try library.save(to: url)
         History.record(HistoryEvent(kind: .claimEdited, project: project, title: "\(claim.id) added: \(text.prefix(80))"), forLibraryAt: url)
         print("Added \(claim.id)")
+
+    case "output":
+        // `claims output C12 results.txt --text "15 of 67 (22.4%)" [--dataset 81,82]`
+        guard rest.positionals.count >= 2, let excerpt = rest.options["text"] ?? rest.options["excerpt"] else {
+            throw UsageError(description: "usage: refware claims output <C#> <output-file> --text \"exact text from the file\" [--dataset IDI,…]")
+        }
+        let claimID = rest.positionals[0]
+        let file = URL(fileURLWithPath: (rest.positionals[1] as NSString).expandingTildeInPath)
+        let ev = try library.bindOutput(project: project, claim: claimID, file: file, excerpt: excerpt, datasets: try datasetIDIs(rest, library), by: HistoryEvent.defaultActor)
+        try library.save(to: url)
+        History.record(HistoryEvent(kind: .claimEdited, project: project, title: "\(claimID) ← output \(ev.path):\(ev.line) “\(ev.excerpt.prefix(60))”",
+                                    idis: ev.datasets, source: ev.path), forLibraryAt: url)
+        print("Bound \(claimID) to \(ev.path), line \(ev.line) (SHA-256 \(ev.sha256.prefix(12))…). If a rerun changes the file and this text is gone, `refware recheck` marks it stale.")
 
     case "import-notes":
         guard let path = rest.positionals.first else { throw UsageError(description: "claims import-notes needs your edited claims .md file") }
@@ -384,7 +405,7 @@ func pdf(_ args: Arguments) async throws {
     case "fetch":
         let targets: [Reference]
         if rest.flags.contains("all") {
-            targets = library.references.values.filter { $0.fileName == nil }.sorted { $0.id < $1.id }
+            targets = library.references.values.filter { $0.fileName == nil && $0.dataset == nil }.sorted { $0.id < $1.id }
         } else {
             guard let raw = rest.positionals.first, let id = Int(raw), let ref = library[id] else { throw UsageError(description: "pdf fetch needs an IDI or --all") }
             targets = [ref]
@@ -493,4 +514,15 @@ func claimStatus(_ raw: String) throws -> ClaimStatus {
         throw UsageError(description: "unknown status \"\(raw)\"; one of: \(ClaimStatus.allCases.map(\.rawValue).joined(separator: ", "))")
     }
     return s
+}
+
+/// `--dataset 81,82` or `--dataset PRJNA516684`: dataset records by IDI or accession.
+func datasetIDIs(_ args: Arguments, _ library: Library) throws -> [IDI] {
+    guard let raw = args.options["dataset"] else { return [] }
+    return try raw.split(separator: ",").map { item in
+        let t = item.trimmingCharacters(in: .whitespaces)
+        if let n = Int(t) { return n }
+        guard let ref = library.dataset(forAccession: t) else { throw UsageError(description: "no dataset record for \(t) — add it with `refware dataset add \(t)`") }
+        return ref.id
+    }
 }

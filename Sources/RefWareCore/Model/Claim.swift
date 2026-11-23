@@ -10,6 +10,8 @@ public struct Claim: Codable, Hashable, Sendable, Identifiable {
     public var sources: [ClaimSource]
     /// Quote tags (`IDI 2-Q1`) recorded with `quote add`.
     public var quotes: [String]
+    /// Analysis-output excerpts this claim rests on (computed results), each bound to its file's SHA-256.
+    public var outputs: [OutputEvidence]?
     public var flags: [ClaimFlag]
     public var status: ClaimStatus
     public var note: String?

@@ -23,6 +23,7 @@ struct RecordInspector: View {
                     if editing { EditForm(store: store, ref: ref) { editing = false } }
                     checkStatus(ref)
                     facts(ref)
+                    datasetFacts(ref)
                     actions(ref)
                     subprojects(ref)
                     duplicates(ref)
@@ -231,6 +232,34 @@ struct RecordInspector: View {
         }
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
+    }
+
+    /// A dataset record: what the archive says, its run tables and key rules (edited from the command line).
+    @ViewBuilder func datasetFacts(_ r: Reference) -> some View {
+        if let d = r.dataset {
+            GroupBox("Dataset · \(d.kind.label)") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(d.allAccessions.joined(separator: " · ")).font(.callout.monospaced()).textSelection(.enabled)
+                    Text(d.repository + (d.access == .controlled ? " · controlled access" : "")).font(.caption).foregroundStyle(.secondary)
+                    if let t = d.archiveTitle { Text(t).font(.callout) }
+                    Text([d.assays.joined(separator: ", "), d.platforms.joined(separator: ", "),
+                          d.samples.map { "\($0) samples" } ?? "", d.runs.map { "\($0) runs" } ?? ""].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.caption)
+                    if let link = d.paperLink { Text("Link to its paper: \(link.rawValue)").font(.caption) }
+                    ForEach(d.snapshots, id: \.sha256) { s in
+                        Text("Run table \(s.fetched.formatted(date: .abbreviated, time: .shortened)) · \(s.runs) runs · SHA-256 \(s.sha256.prefix(12))…")
+                            .font(.caption2.monospaced()).foregroundStyle(.secondary)
+                    }
+                    ForEach(d.keyRules, id: \.self) { k in
+                        Text("Key rule “\(k.name)”\(k.retired == nil ? "" : " (retired)"): \(k.field) → \(k.groups.joined(separator: ", ")) · \(k.by ?? "?")")
+                            .font(.caption2)
+                    }
+                    ForEach(d.warnings, id: \.self) { w in Label(w, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange) }
+                    Text("Manage with `refware dataset show \(d.accession)` · `runs --refresh` · `key`").font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
     }
 
     @ViewBuilder func quotesAndClaims(_ r: Reference) -> some View {

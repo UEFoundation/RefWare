@@ -393,8 +393,8 @@ struct ActionsPanel: View {
                               unpaywall: store.mailto.map { UnpaywallClient(http: http, email: $0) })
         var got = 0, failed = 0
         var noFreeCopy: [IDI] = []
-        let todo = store.insights.references.filter { $0.fileName == nil && ($0.url != nil || $0.doi != nil) }
-        let noLink = store.insights.references.filter { $0.fileName == nil && $0.url == nil && $0.doi == nil }
+        let todo = store.insights.references.filter { $0.dataset == nil && $0.fileName == nil && ($0.url != nil || $0.doi != nil) }
+        let noLink = store.insights.references.filter { $0.dataset == nil && $0.fileName == nil && $0.url == nil && $0.doi == nil }
         for ref in todo {
             do {
                 var lib = try Library.load(from: store.libURL)

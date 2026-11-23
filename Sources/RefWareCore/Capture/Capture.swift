@@ -63,7 +63,18 @@ public struct RefWareConfig: Codable, Sendable {
             .appendingPathComponent("Library/Application Support/RefWare/config.json")
     }
 
+    /// The saved defaults, with `REFWARE_PROJECT` (and `REFWARE_LIBRARY`) from the environment taking precedence —
+    /// so a session (e.g. a MAVIS turn) can work in its own project without changing anyone's defaults.
     public static func load() -> RefWareConfig {
+        var c = loadSaved()
+        let env = ProcessInfo.processInfo.environment
+        if let p = env["REFWARE_PROJECT"], !p.isEmpty { c.project = p }
+        if let l = env["REFWARE_LIBRARY"], !l.isEmpty { c.library = l }
+        return c
+    }
+
+    /// Just the saved file (what the app's Settings and `refware config` edit).
+    public static func loadSaved() -> RefWareConfig {
         (try? JSONDecoder().decode(RefWareConfig.self, from: Data(contentsOf: fileURL))) ?? RefWareConfig()
     }
 
